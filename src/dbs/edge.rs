@@ -1,5 +1,10 @@
-use crate::graph::{node::Bind, node::Node, remove::Remove};
-use crate::ql::{record::Record, value::Value};
+use crate::{
+    dbs::{
+        node::{Bind, Node},
+        ops::remove::Remove,
+    },
+    ql::{record::Record, value::Value},
+};
 use actix::{Actor, Addr, AsyncContext, Context, Handler, Message};
 use std::{collections::BTreeMap, sync::Arc};
 use uuid::Uuid;
@@ -7,12 +12,12 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct Path<T: Actor> {
     pub id: Record,
-    pub address: Addr<T>,
+    pub addr: Addr<T>,
 }
 
 impl<T: Actor> Path<T> {
-    pub fn new(id: Record, address: Addr<T>) -> Self {
-        Path { id, address }
+    pub fn new(id: Record, addr: Addr<T>) -> Self {
+        Path { id, addr }
     }
 
     pub fn id(&self) -> Record {
@@ -20,7 +25,7 @@ impl<T: Actor> Path<T> {
     }
 
     pub fn address(&self) -> Addr<T> {
-        self.address.clone()
+        self.addr.clone()
     }
 }
 
@@ -28,8 +33,8 @@ impl<T: Actor> Path<T> {
 pub struct Edge {
     pub id: Record,
     pub fields: BTreeMap<Arc<str>, Value>,
-    pub node_1: Path<Node>,
-    pub node_2: Path<Node>,
+    pub origin: Path<Node>,
+    pub dest: Path<Node>,
 }
 
 impl Edge {
@@ -44,26 +49,36 @@ impl Edge {
         Edge {
             id: Record::new(edge, Uuid::new_v4().to_string()),
             fields: fields.into_iter().map(|(k, v)| (k.into(), v)).collect(),
-            node_1: Path::new(from, from_address),
-            node_2: Path::new(to, to_address),
+            origin: Path::new(from, from_address),
+            dest: Path::new(to, to_address),
         }
     }
     pub fn id(&self) -> Record {
         self.id.clone()
     }
 
-    pub fn fields(&self) -> Vec<(Arc<str>, Value)> {
-        let mut fields = self
-            .fields
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect::<Vec<_>>();
-        let node_1 = self.node_1.id();
-        let node_2 = self.node_2.id();
-        fields.append(&mut vec![
-            ("in".into(), Value::Record(node_1)),
-            ("out".into(), Value::Record(node_2)),
-        ]);
+    pub fn origin(&self) -> Addr<Node> {
+        self.origin.addr.clone()
+    }
+
+    pub fn dest(&self) -> Addr<Node> {
+        self.dest.addr.clone()
+    }
+
+    pub fn bind_origin(&self, msg: Bind) {
+        self.origin.addr.do_send(msg)
+    }
+
+    pub fn bind_dest(&self, msg: Bind) {
+        self.dest.addr.do_send(msg)
+    }
+
+    pub fn fields(&self) -> BTreeMap<Arc<str>, Value> {
+        let mut fields = self.fields.clone();
+        let origin = self.origin.id();
+        let dest = self.dest.id();
+        fields.insert("in".into(), origin.into());
+        fields.insert("out".into(), dest.into());
         fields
     }
 }
@@ -81,10 +96,10 @@ impl Actor for Edge {
     }
 
     fn stopping(&mut self, _ctx: &mut Self::Context) -> actix::prelude::Running {
-        let addr_1 = self.node_1.address();
-        let addr_2 = self.node_2.address();
-        addr_1.do_send(Remove::<&str>::Edge(self.id()));
-        addr_2.do_send(Remove::<&str>::Edge(self.id()));
+        let addr_1 = self.origin.address();
+        let addr_2 = self.dest.address();
+        addr_1.do_send(Remove::Edge(self.id()));
+        addr_2.do_send(Remove::Edge(self.id()));
         actix::prelude::Running::Stop
     }
 }
@@ -97,11 +112,7 @@ impl Handler<Configure> for Edge {
     type Result = ();
 
     fn handle(&mut self, _msg: Configure, ctx: &mut Self::Context) -> Self::Result {
-        self.node_1
-            .address()
-            .do_send(Bind(self.id(), ctx.address()));
-        self.node_2
-            .address()
-            .do_send(Bind(self.id(), ctx.address()));
+        self.bind_origin(Bind(self.id(), ctx.address()));
+        self.bind_dest(Bind(self.id(), ctx.address()));
     }
 }

@@ -1,6 +1,7 @@
 use crate::{
-    graph::{delete::Delete, edge::Edge},
-    ql::{record::Record, value::Value},
+    dbs::{edge::Edge, ops::delete::Delete},
+    err::Error,
+    ql::{ident::Ident, idiom::Idiom, part::Part, record::Record, value::Value},
 };
 use actix::{Actor, Addr, Context, Handler, Message};
 use std::{collections::BTreeMap, sync::Arc};
@@ -28,29 +29,51 @@ impl Node {
     }
 
     pub fn new(id: Record, fields: Vec<(Arc<str>, Value)>) -> Self {
+        let mut fields: BTreeMap<_, _> = fields.into_iter().collect();
+        fields.insert("id".into(), id.clone().into());
         Node {
             id,
-            fields: fields.into_iter().collect(),
+            fields,
             edges: BTreeMap::new(),
         }
     }
 
-    pub fn spawn(id: Record, fields: Vec<(Arc<str>, Value)>) -> Addr<Self> {
-        Node {
-            id,
-            fields: fields.into_iter().collect(),
-            edges: BTreeMap::new(),
-        }
-        .start()
+    pub fn fields(&self) -> BTreeMap<Arc<str>, Value> {
+        self.fields.clone()
     }
-    pub fn fields(&self) -> Vec<(Arc<str>, Value)> {
-        let mut fields = self
-            .fields
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect::<Vec<_>>();
-        fields.push((Arc::from("id"), self.id().into()));
-        fields
+
+    pub fn get(&self, Ident(id): &Ident) -> Option<&Value> {
+        self.fields.get(id)
+    }
+
+    pub fn evaluate(&self, val: &Value) -> Result<Value, Error> {
+        Ok(match val {
+            v @ Value::Record(_) => v.to_owned(),
+            Value::Idiom(v) => self.nested_field(&v)?,
+            Value::Expression(v) => v.evaluate(self)?,
+            v => v.to_owned(),
+        })
+    }
+
+    pub fn nested_field(&self, Idiom(parts): &Idiom) -> Result<Value, Error> {
+        let mut parts = parts.into_iter();
+        let Some(part) = parts.next() else {
+            return Ok(Value::None);
+        };
+        let field = match part {
+            Part::Field(id) => self.get(&id),
+            _ => return Err(Error::InvalidIdiom),
+        };
+        let Some(field) = field else {
+            return Ok(Value::None);
+        };
+        let mut field = field.to_owned();
+
+        for part in parts {
+            field = field.retrieve(part)?;
+        }
+
+        todo!()
     }
 }
 

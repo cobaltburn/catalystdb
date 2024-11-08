@@ -1,4 +1,4 @@
-use crate::graph::{edge::Edge, node::Node};
+use crate::dbs::{edge::Edge, node::Node};
 use actix::{ActorContext, Handler, Message};
 
 #[derive(Message)]
@@ -23,8 +23,10 @@ impl Handler<Delete> for Edge {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use super::*;
-    use crate::{graph::relate::Relate, ql::record::Record};
+    use crate::{dbs::ops::relate::Relate, ql::record::Record};
     use actix::{Actor, Addr};
 
     #[derive(Message)]
@@ -42,8 +44,9 @@ mod test {
 
     #[actix::test]
     async fn delete_test() {
-        let a = Node::new(("a", "1").into(), vec![]).start();
-        let b = Node::new(("b", "2").into(), vec![]).start();
+        let fields: Vec<(Arc<str>, _)> = Vec::new();
+        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
+        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
         let _ = a
             .send(Relate::Relate {
                 edge: "e_1".to_string(),
@@ -58,9 +61,10 @@ mod test {
 
     #[actix::test]
     async fn delete_two_test() {
-        let a = Node::new(("a", "1").into(), vec![]).start();
-        let b = Node::new(("b", "2").into(), vec![]).start();
-        let c = Node::new(("c", "2").into(), vec![]).start();
+        let fields: Vec<(Arc<str>, _)> = Vec::new();
+        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
+        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
+        let c = Node::new(Record::new("c", "2"), fields.clone()).start();
         let _ = a
             .send(Relate::Relate {
                 edge: "e_1".to_string(),

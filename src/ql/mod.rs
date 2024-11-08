@@ -1,3 +1,17 @@
+pub mod array;
+pub mod edge;
+pub mod expression;
+pub mod fields;
+pub mod ident;
+pub mod idiom;
 pub mod number;
+pub mod object;
+pub mod operator;
+pub mod part;
 pub mod record;
+pub mod serde;
+pub mod statements;
+pub mod strand;
+pub mod table;
+pub mod uuid;
 pub mod value;

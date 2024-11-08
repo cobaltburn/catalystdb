@@ -1,5 +1,5 @@
 use crate::{
-    graph::{edge::Edge, node::Node},
+    dbs::{edge::Edge, node::Node},
     ql::{record::Record, value::Value},
 };
 use actix::{Actor, Addr, AsyncContext, Handler, Message};
@@ -10,7 +10,7 @@ pub enum Relate {
     Generate {
         edge: String,
         fields: Vec<(String, Value)>,
-        from: Record,
+        origin: Record,
         address: Addr<Node>,
     },
     Relate {
@@ -24,13 +24,13 @@ impl Relate {
     pub fn generate(
         edge: String,
         fields: Vec<(String, Value)>,
-        from: Record,
+        origin: Record,
         address: Addr<Node>,
     ) -> Self {
         Relate::Generate {
             edge,
             fields,
-            from,
+            origin,
             address,
         }
     }
@@ -44,7 +44,7 @@ impl Handler<Relate> for Node {
             Relate::Generate {
                 edge,
                 fields,
-                from,
+                origin: from,
                 address,
             } => {
                 Edge::new(edge, self.id(), from, ctx.address(), address, fields).start();
