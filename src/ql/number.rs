@@ -3,7 +3,7 @@ use std::{
     cmp::Ordering,
     fmt::Display,
     hash,
-    ops::{self, Neg},
+    ops::{self},
 };
 
 use crate::err::Error;
@@ -125,21 +125,27 @@ impl Ord for Number {
             }
         }
 
+        macro_rules! greater {
+            ($f:ident) => {
+                if $f.is_sign_positive() {
+                    Ordering::Greater
+                } else {
+                    Ordering::Less
+                }
+            };
+        }
+
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => a.cmp(b),
             (Number::Float(a), Number::Float(b)) => cmp_f64(*a, *b),
             (Number::Int(a), Number::Float(b)) => {
+                if !b.is_finite() {
+                    return greater!(b).reverse();
+                }
                 let l = *a as i128;
                 let r = *b as i128;
                 match l.cmp(&r) {
-                    Ordering::Greater => {
-                        let l = 0.0;
-                        let r = b.fract();
-                        if l == r {
-                            return Ordering::Equal;
-                        }
-                        l.total_cmp(&r)
-                    }
+                    Ordering::Equal => cmp_f64(0.0, b.fract()),
                     ordering => ordering,
                 }
             }

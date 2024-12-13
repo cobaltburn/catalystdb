@@ -14,17 +14,6 @@ pub enum Part {
     Value(Value),
 }
 
-impl fmt::Display for Part {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Part::All => write!(f, "*"),
-            Part::Field(v) => write!(f, "{v}"),
-            Part::Index(v) => write!(f, "{v}"),
-            Part::Value(v) => write!(f, "{v}"),
-        }
-    }
-}
-
 impl Part {
     pub fn evaluate(&self, node: &Node) -> Result<Value, Error> {
         Ok(match self {
@@ -33,8 +22,18 @@ impl Part {
                 .get(v)
                 .ok_or_else(|| Error::FieldNotFound(v.to_string()))?
                 .clone(),
-            Part::Index(_) => todo!(),
-            Part::Value(v) => todo!(),
+            v => return Err(Error::InvalidEvaluationPart(v.to_string())),
         })
+    }
+}
+
+impl fmt::Display for Part {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Part::All => write!(f, "*"),
+            Part::Field(v) => write!(f, "{v}"),
+            Part::Index(v) => write!(f, "{v}"),
+            Part::Value(v) => write!(f, "{v}"),
+        }
     }
 }

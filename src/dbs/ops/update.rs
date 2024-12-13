@@ -51,7 +51,7 @@ mod test {
         ]))
         .await
         .unwrap();
-        let result: BTreeMap<Arc<str>, Value> = a
+        let result: Value = a
             .send(Get::new(vec![Field::WildCard], None))
             .await
             .unwrap()
@@ -62,6 +62,6 @@ mod test {
             ("speed".into(), 2.into()),
             ("id".into(), Record::new("a", "1").into()),
         ]);
-        assert_eq!(result, correct);
+        assert_eq!(result, correct.into());
     }
 }

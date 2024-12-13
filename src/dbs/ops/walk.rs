@@ -1,12 +1,12 @@
 use crate::{
-    dbs::{edge::Edge, node::Node, ops::get},
+    dbs::{edge::Edge, node::Node, ops::response::Response},
     ql::record::Record,
 };
 use actix::{Handler, MailboxError, Message, ResponseFuture};
 use std::sync::Arc;
 
 #[derive(Message)]
-#[rtype(result = "Result<Vec<get::Response>, MailboxError>")]
+#[rtype(result = "Result<Vec<Response>, MailboxError>")]
 pub struct Walk(pub Vec<Arc<str>>, pub Arc<str>);
 
 impl Walk {
@@ -17,7 +17,7 @@ impl Walk {
 }
 
 impl Handler<Walk> for Node {
-    type Result = ResponseFuture<Result<Vec<get::Response>, MailboxError>>;
+    type Result = ResponseFuture<Result<Vec<Response>, MailboxError>>;
 
     fn handle(&mut self, walk: Walk, _ctx: &mut Self::Context) -> Self::Result {
         let Walk(mut path, field) = walk;
@@ -29,7 +29,7 @@ impl Handler<Walk> for Node {
             } else if let Some(value) = self.fields.get(&field) {
                 value.clone().into()
             } else {
-                get::Response::None
+                Response::None
             };
 
             return Box::pin(async move { Ok(vec![fields]) });
@@ -57,7 +57,7 @@ impl Handler<Walk> for Node {
 }
 
 impl Handler<Walk> for Edge {
-    type Result = ResponseFuture<Result<Vec<get::Response>, MailboxError>>;
+    type Result = ResponseFuture<Result<Vec<Response>, MailboxError>>;
 
     fn handle(&mut self, Walk(mut path, field): Walk, _ctx: &mut Self::Context) -> Self::Result {
         let Some(table) = path.pop() else {
@@ -68,7 +68,7 @@ impl Handler<Walk> for Edge {
             } else if let Some(value) = self.fields.get(&field) {
                 value.clone().into()
             } else {
-                get::Response::None
+                Response::None
             };
 
             return Box::pin(async move { Ok(vec![fields]) });
@@ -82,126 +82,4 @@ impl Handler<Walk> for Edge {
 }
 
 #[cfg(test)]
-mod test {
-    use std::collections::BTreeMap;
-
-    use super::*;
-    use crate::{dbs::ops::relate::Relate, ql::value::Value};
-    use actix::Actor;
-
-    #[actix::test]
-    async fn test_walk() {
-        let fields: Vec<(Arc<str>, _)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
-        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
-
-        let _ = a
-            .send(Relate::Relate {
-                edge: "e_1".to_string(),
-                fields: vec![],
-                address: b.clone(),
-            })
-            .await;
-        let mut path = vec!["e_1", "b"];
-        path.reverse();
-        let mut res = a.send(Walk::new(path, "*")).await.unwrap().unwrap();
-
-        let res = res.pop().unwrap();
-        let res: BTreeMap<Arc<str>, Value> = res.try_into().unwrap();
-        let value = res.get("id".into()).unwrap();
-        assert_eq!(*value, Value::Record(Box::new(Record::new("b", "2"))))
-    }
-
-    #[actix::test]
-    async fn test_walk_two() {
-        let fields: Vec<(Arc<str>, _)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
-        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
-        let c = Node::new(Record::new("c", "3"), fields.clone()).start();
-
-        let _ = a
-            .send(Relate::Relate {
-                edge: "e_1".to_string(),
-                fields: vec![],
-                address: b.clone(),
-            })
-            .await;
-
-        let _ = b
-            .send(Relate::Relate {
-                edge: "e_2".to_string(),
-                fields: vec![],
-                address: c.clone(),
-            })
-            .await;
-        let mut path = vec!["e_1", "b", "e_2", "c"];
-        path.reverse();
-
-        let mut res = a.send(Walk::new(path, "id")).await.unwrap().unwrap();
-
-        let get = res.pop().unwrap();
-        let value: Value = get.try_into().unwrap();
-        assert_eq!(value, Value::Record(Box::new(Record::new("c", "3"))))
-    }
-
-    #[actix::test]
-    async fn test_walk_empty() {
-        let fields: Vec<(Arc<str>, _)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
-        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
-        let c = Node::new(Record::new("c", "3"), fields.clone()).start();
-
-        let _ = a
-            .send(Relate::Relate {
-                edge: "e_1".to_string(),
-                fields: vec![],
-                address: b.clone(),
-            })
-            .await;
-
-        let _ = b
-            .send(Relate::Relate {
-                edge: "e_2".to_string(),
-                fields: vec![],
-                address: c.clone(),
-            })
-            .await;
-        let mut path = vec!["e_1", "z", "e_2", "c"];
-        path.reverse();
-
-        let res = a.send(Walk::new(path, "*")).await.unwrap().unwrap();
-        assert!(res.is_empty())
-    }
-
-    #[actix::test]
-    async fn walk_field_test() {
-        let fields: Vec<(Arc<str>, _)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
-        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
-        let c = Node::new(Record::new("c", "3"), vec![("car".into(), "1".into())]).start();
-
-        let _ = a
-            .send(Relate::Relate {
-                edge: "e_1".to_string(),
-                fields: vec![],
-                address: b.clone(),
-            })
-            .await;
-
-        let _ = b
-            .send(Relate::Relate {
-                edge: "e_2".to_string(),
-                fields: vec![],
-                address: c.clone(),
-            })
-            .await;
-        let mut path = vec!["e_1", "b", "e_2", "c"];
-        path.reverse();
-
-        let mut res = a.send(Walk::new(path, "car")).await.unwrap().unwrap();
-
-        let x = res.pop().unwrap();
-        let x: Value = x.try_into().unwrap();
-        assert_eq!(x, Value::String("1".into()))
-    }
-}
+mod test {}

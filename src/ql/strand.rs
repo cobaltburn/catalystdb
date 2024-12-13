@@ -27,6 +27,10 @@ impl Strand {
     pub fn as_string(&self) -> String {
         self.0.deref().into()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl ops::Add for Strand {

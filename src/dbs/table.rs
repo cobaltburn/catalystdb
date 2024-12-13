@@ -1,8 +1,9 @@
 use crate::{
     dbs::node::Node,
+    dbs::ops::response::Response,
     ql::{record::Record, value::Value},
 };
-use actix::{dev::MessageResponse, Actor, Addr, Context, Handler, Message};
+use actix::{Actor, Addr, Context, Handler, Message};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{collections::HashMap, sync::Arc};
 
@@ -60,68 +61,11 @@ impl Handler<Retrieve> for Table {
     fn handle(&mut self, msg: Retrieve, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
             Retrieve::Iterator => {
-                Response::Iterator(self.nodes.par_iter().map(|node| node.1.clone()).collect())
+                Response::Table(self.nodes.par_iter().map(|node| node.1.clone()).collect())
             }
-            Retrieve::Record(Record { table: _, id }) => {
-                self.get(id).map_or(Response::None, Into::into)
-            }
+            Retrieve::Record(Record { table: _, id }) => self
+                .get(id)
+                .map_or(Response::None, |addr| Response::Table(vec![addr])),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Response {
-    Iterator(Vec<Addr<Node>>),
-    Record(Addr<Node>),
-    None,
-}
-
-impl<A, M> MessageResponse<A, M> for Response
-where
-    A: Actor,
-    M: Message<Result = Response>,
-{
-    fn handle(
-        self,
-        _ctx: &mut A::Context,
-        tx: Option<actix::prelude::dev::OneshotSender<M::Result>>,
-    ) {
-        if let Some(tx) = tx {
-            let _ = tx.send(self);
-        }
-    }
-}
-
-impl From<Addr<Node>> for Response {
-    fn from(record: Addr<Node>) -> Self {
-        Response::Record(record)
-    }
-}
-
-impl From<Vec<Addr<Node>>> for Response {
-    fn from(records: Vec<Addr<Node>>) -> Self {
-        Response::Iterator(records)
-    }
-}
-
-impl TryInto<Addr<Node>> for Response {
-    type Error = ();
-
-    fn try_into(self) -> Result<Addr<Node>, Self::Error> {
-        if let Response::Record(node) = self {
-            return Ok(node);
-        }
-        Err(())
-    }
-}
-
-impl TryInto<Vec<Addr<Node>>> for Response {
-    type Error = ();
-
-    fn try_into(self) -> Result<Vec<Addr<Node>>, Self::Error> {
-        if let Response::Iterator(node) = self {
-            return Ok(node);
-        }
-        Err(())
     }
 }

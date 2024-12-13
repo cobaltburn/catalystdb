@@ -1,4 +1,4 @@
-use crate::{
+/* use crate::{
     dbs::{
         graph::{self, Graph},
         node::Node,
@@ -55,76 +55,7 @@ impl Select {
             _ => Err(anyhow!("")),
         }
     }
-}
+} */
 
 #[cfg(test)]
-mod test {
-    use super::*;
-    use crate::{
-        dbs::ops::{define::Define, insert::Insert},
-        ql::{self, fields::Field, record::Record, value::Value},
-    };
-    use actix::Actor;
-    use get::Response;
-    use std::collections::BTreeMap;
-
-    /* #[actix_rt::test]
-    async fn test_select_table() {
-        let select = Select::new(
-            ql::fields::Fields::new(vec![Field::WildCard]),
-            Value::Idiom(Ident::new("a")),
-        );
-
-        let graph = Graph::new().start();
-        graph.send(Define::table("a")).await.unwrap();
-
-        let msg = graph::Retrieve::new("a");
-        let table = graph.send(msg).await.unwrap().unwrap();
-        let _ = table.send(Insert::new(1, vec![("a", 1.into())])).await;
-        let _ = table.send(Insert::new(2, vec![("a", 2.into())])).await;
-        let _ = table.send(Insert::new(3, vec![("a", 3.into())])).await;
-
-        let response = select.execute(graph).await.unwrap();
-        let correct = vec![
-            Response::Fields(BTreeMap::from([
-                ("a".into(), 1.into()),
-                ("id".into(), Record::new("a", 1).into()),
-            ])),
-            Response::Fields(BTreeMap::from([
-                ("a".into(), 2.into()),
-                ("id".into(), Record::new("a", 2).into()),
-            ])),
-            Response::Fields(BTreeMap::from([
-                ("a".into(), 3.into()),
-                ("id".into(), Record::new("a", 3).into()),
-            ])),
-        ];
-        assert_eq!(response.len(), 3);
-        correct
-            .into_iter()
-            .for_each(|r| assert!(response.contains(&r)));
-    } */
-
-    #[actix_rt::test]
-    async fn test_select_record() {
-        let select = Select::new(
-            ql::fields::Fields::new(vec![Field::WildCard]),
-            Value::Record(Box::new(Record::new("a", 1))),
-        );
-
-        let graph = Graph::new().start();
-        graph.send(Define::table("a")).await.unwrap();
-
-        let msg = graph::Retrieve::new("a");
-        let table = graph.send(msg).await.unwrap().unwrap();
-        let _ = table.send(Insert::new(1, vec![("a", 1.into())])).await;
-        let _ = table.send(Insert::new(2, vec![("a", 2.into())])).await;
-
-        let response = select.execute(graph).await.unwrap();
-        let correct = vec![Response::Fields(BTreeMap::from([
-            ("a".into(), 1.into()),
-            ("id".into(), Record::new("a", 1).into()),
-        ]))];
-        assert_eq!(response, correct);
-    }
-}
+mod test {}

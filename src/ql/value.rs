@@ -2,12 +2,16 @@ use crate::{
     dbs::node::Node,
     err::Error,
     ql::{
-        array::Array, expression::Expression, ident::Ident, idiom::Idiom, number::Number,
-        object::Object, part::Part, record::Record, uuid::Uuid,
+        array::Array, expression::Expression, idiom::Idiom, number::Number, object::Object,
+        part::Part, record::Record, strand::Strand, uuid::Uuid,
     },
 };
 use core::fmt;
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    ops::{Add, Div, Mul, Sub},
+    sync::Arc,
+};
 
 #[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Values(pub Vec<Value>);
@@ -21,7 +25,7 @@ pub enum Value {
     Record(Box<Record>),
     Uuid(Uuid),
     Number(Number),
-    String(Arc<str>),
+    String(Strand),
     Bool(bool),
     Array(Array),
     Object(Object),
@@ -83,23 +87,13 @@ impl From<i64> for Value {
     }
 }
 
-impl Value {
-    pub fn nested_retrieval(&self, part: Part) -> &Value {
-        match part {
-            Part::Field(Ident(ident)) => match self {
-                Value::Array(_) => todo!(),
-                Value::Object(v) => todo!(),
-                Value::Record(_) => todo!(),
-                _ => &Value::None,
-            },
-            Part::Index(Number::Int(i)) => match self {
-                Value::Array(v) => &v[i as usize],
-                _ => &Value::None,
-            },
-            _ => panic!(),
-        }
+impl From<BTreeMap<Arc<str>, Value>> for Value {
+    fn from(value: BTreeMap<Arc<str>, Value>) -> Self {
+        Value::Object(Object(value))
     }
+}
 
+impl Value {
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Bool(v) => *v,
@@ -115,10 +109,10 @@ impl Value {
 
     pub fn evaluate(&self, node: &Node) -> Result<Value, Error> {
         match self {
-            Value::Record(_) => todo!(),
-            Value::Array(_) => todo!(),
-            Value::Idiom(v) => todo!(),
-            Value::Object(v) => todo!(),
+            // Value::Record(_) => todo!(),
+            // Value::Array(_) => todo!(),
+            // Value::Object(_) => todo!(),
+            Value::Idiom(v) => v.evaluate(node),
             Value::Expression(v) => v.evaluate(node),
             v => Ok(v.to_owned()),
         }
@@ -139,6 +133,41 @@ impl Value {
         Ok(match self {
             Value::Number(v) => Value::Number(v.try_neg()?),
             v => return Err(Error::InvalidNegative(v)),
+        })
+    }
+
+    pub fn try_not(self) -> Result<Self, Error> {
+        Ok(Value::Bool(!self.is_truthy()))
+    }
+}
+
+impl Value {
+    pub fn try_add(self, right: Value) -> Result<Value, Error> {
+        Ok(match (self, right) {
+            (Value::Number(left), Value::Number(right)) => Value::Number(left.add(right)),
+            (Value::String(left), Value::String(right)) => Value::String(left.add(right)),
+            (left, right) => return Err(Error::TryAdd(left.to_string(), right.to_string())),
+        })
+    }
+
+    pub fn try_sub(self, right: Value) -> Result<Value, Error> {
+        Ok(match (self, right) {
+            (Value::Number(left), Value::Number(right)) => Value::Number(left.sub(right)),
+            (left, right) => return Err(Error::TrySub(left.to_string(), right.to_string())),
+        })
+    }
+
+    pub fn try_mul(self, right: Value) -> Result<Value, Error> {
+        Ok(match (self, right) {
+            (Value::Number(left), Value::Number(right)) => Value::Number(left.mul(right)),
+            (left, right) => return Err(Error::TryMul(left.to_string(), right.to_string())),
+        })
+    }
+
+    pub fn try_div(self, right: Value) -> Result<Value, Error> {
+        Ok(match (self, right) {
+            (Value::Number(left), Value::Number(right)) => Value::Number(left.div(right)),
+            (left, right) => return Err(Error::TryDiv(left.to_string(), right.to_string())),
         })
     }
 }

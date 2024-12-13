@@ -2,11 +2,11 @@ use crate::ql::{operator::Operator, value::Value};
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(PartialEq, Eq, Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
     #[error("Can not create {table}:{id}")]
-    CreateError { table: String, id: Value },
+    CreateError { table: String, id: String },
 
     #[error("Invalid negative argument: {0}")]
     InvalidNegative(Value),
@@ -20,11 +20,29 @@ pub enum Error {
     #[error("Invalid Operator: {0}")]
     InvalidOperator(Operator),
 
+    #[error("{0} is an invalid type for evaluating node")]
+    InvalidEvaluationPart(String),
+
+    #[error("Invalid addition types: {0}, {1}")]
+    TryAdd(String, String),
+
+    #[error("Invalid subtraction types: {0}, {1}")]
+    TrySub(String, String),
+
+    #[error("Invalid multiplication types: {0}, {1}")]
+    TryMul(String, String),
+
+    #[error("Invalid division types: {0}, {1}")]
+    TryDiv(String, String),
+
     #[error("Serialization error: {0}")]
     Serialization(String),
 
     #[error("{0} is an out of bounds")]
     OutOfBoundsIndex(usize),
+
+    #[error("Failed to convert {0}")]
+    FailedInto(String),
 }
 
 impl Serialize for Error {

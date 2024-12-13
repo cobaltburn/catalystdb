@@ -61,7 +61,7 @@ mod test {
         )
         .start();
         node.send(Remove::Field(String::from("car"))).await.unwrap();
-        let result: BTreeMap<Arc<str>, Value> = node
+        let result: Value = node
             .send(Get::new(vec![Field::WildCard], None))
             .await
             .unwrap()
@@ -71,6 +71,6 @@ mod test {
             ("speed".into(), 2.into()),
             ("id".into(), Record::new("a", "1").into()),
         ]);
-        assert_eq!(result, correct);
+        assert_eq!(result, correct.into());
     }
 }

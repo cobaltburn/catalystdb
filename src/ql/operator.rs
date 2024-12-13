@@ -16,6 +16,7 @@ pub enum Operator {
     Div,
 
     Eq,
+    NtEq,
     Lt,
     Gt,
     LtEq,
@@ -38,6 +39,7 @@ impl fmt::Display for Operator {
             Operator::Gt => write!(f, ">"),
             Operator::LtEq => write!(f, "<="),
             Operator::GtEq => write!(f, ">="),
+            Operator::NtEq => write!(f, "!="),
         }
     }
 }
