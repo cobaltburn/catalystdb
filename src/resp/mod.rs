@@ -1,5 +1,5 @@
 use crate::{
-    dbs::node::Node,
+    dbs::entity::Entity,
     err::Error,
     ql::{record::Record, value::Value},
 };
@@ -9,8 +9,7 @@ use std::{collections::BTreeMap, sync::Arc};
 #[derive(PartialEq, Eq, Debug)]
 pub enum Response {
     Value(Value),
-    Table(Vec<Addr<Node>>),
-    Error(Error),
+    Table(Vec<Addr<Entity>>),
     None,
 }
 
@@ -59,15 +58,17 @@ impl TryFrom<Response> for Value {
     }
 }
 
-impl From<Vec<Addr<Node>>> for Response {
-    fn from(records: Vec<Addr<Node>>) -> Self {
+impl From<Vec<Addr<Entity>>> for Response {
+    fn from(records: Vec<Addr<Entity>>) -> Self {
         Response::Table(records)
     }
 }
-impl TryInto<Vec<Addr<Node>>> for Response {
+impl TryInto<Vec<Addr<Entity>>> for Response {
     type Error = ();
 
-    fn try_into(self) -> Result<Vec<Addr<Node>>, <Response as TryInto<Vec<Addr<Node>>>>::Error> {
+    fn try_into(
+        self,
+    ) -> Result<Vec<Addr<Entity>>, <Response as TryInto<Vec<Addr<Entity>>>>::Error> {
         if let Response::Table(node) = self {
             return Ok(node);
         }

@@ -1,32 +1,27 @@
-use crate::{dbs::node::Node, ql::value::Value};
+use crate::{dbs::entity::Entity, err::Error, ql::value::Value, resp::Response};
 use actix::{Handler, Message};
 use std::sync::Arc;
 
 #[derive(Message)]
-#[rtype(result = "()")]
+#[rtype(result = "Result<Response, Error>")]
 pub struct Update(pub Vec<(Arc<str>, Value)>);
 
-impl Update {
-    pub fn new<S: Into<Arc<str>>>(fields: Vec<(S, Value)>) -> Self {
-        let fields = fields
-            .into_iter()
-            .map(|(k, v)| (k.into(), v))
-            .collect::<Vec<(Arc<str>, Value)>>();
-        Update(fields)
-    }
-}
-
-impl Handler<Update> for Node {
-    type Result = ();
+impl Handler<Update> for Entity {
+    type Result = Result<Response, Error>;
 
     fn handle(&mut self, Update(fields): Update, _ctx: &mut Self::Context) -> Self::Result {
         for (field, value) in fields {
-            if let Some(val) = self.fields.get_mut(&field) {
+            let fields = match self {
+                Entity::Node { fields, .. } => fields,
+                Entity::Edge { fields, .. } => fields,
+            };
+            if let Some(val) = fields.get_mut(&field) {
                 *val = value.into();
             } else {
-                self.fields.insert(field, value);
+                fields.insert(field, value);
             };
         }
+        Ok(Response::Value(self.fields().clone().into()))
     }
 }
 
@@ -44,16 +39,18 @@ mod test {
     #[actix::test]
     async fn update_test() {
         let fields: Vec<(Arc<str>, Value)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields).start();
-        a.send(Update::new(vec![
-            ("car", "new".into()),
-            ("speed", 2.into()),
+        let a = Entity::new_node(Record::new("a", "1"), fields).start();
+        a.send(Update(vec![
+            ("car".into(), "new".into()),
+            ("speed".into(), 2.into()),
         ]))
         .await
+        .unwrap()
         .unwrap();
         let result: Value = a
             .send(Get::new(vec![Field::WildCard], None))
             .await
+            .unwrap()
             .unwrap()
             .try_into()
             .unwrap();

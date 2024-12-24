@@ -1,5 +1,5 @@
-pub mod edge;
-pub mod graph;
-pub mod node;
-pub mod ops;
-pub mod table;
+pub(crate) mod entity;
+pub(crate) mod graph;
+pub(crate) mod ops;
+pub(crate) mod table;
+pub(crate) mod walker;

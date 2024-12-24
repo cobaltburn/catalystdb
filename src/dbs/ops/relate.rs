@@ -1,59 +1,42 @@
 use crate::{
-    dbs::{edge::Edge, node::Node},
+    dbs::entity::Entity,
+    err::Error,
     ql::{record::Record, value::Value},
+    resp::Response,
 };
 use actix::{Actor, Addr, AsyncContext, Handler, Message};
 
 #[derive(Message)]
-#[rtype(result = "()")]
-pub enum Relate {
-    Generate {
-        edge: String,
-        fields: Vec<(String, Value)>,
-        origin: Record,
-        address: Addr<Node>,
-    },
-    Relate {
-        edge: String,
-        fields: Vec<(String, Value)>,
-        address: Addr<Node>,
-    },
+#[rtype(result = "Result<Response, Error>")]
+pub struct Relate {
+    pub edge: String,
+    pub fields: Vec<(String, Value)>,
+    pub org_id: Record,
+    pub origin: Addr<Entity>,
 }
 
-impl Relate {
-    pub fn generate(
-        edge: String,
-        fields: Vec<(String, Value)>,
-        origin: Record,
-        address: Addr<Node>,
-    ) -> Self {
-        Relate::Generate {
+impl Handler<Relate> for Entity {
+    type Result = Result<Response, Error>;
+
+    fn handle(
+        &mut self,
+        Relate {
             edge,
             fields,
+            org_id,
             origin,
-            address,
-        }
-    }
-}
-
-impl Handler<Relate> for Node {
-    type Result = ();
-
-    fn handle(&mut self, msg: Relate, ctx: &mut Self::Context) -> Self::Result {
-        match msg {
-            Relate::Generate {
-                edge,
-                fields,
-                origin: from,
-                address,
-            } => {
-                Edge::new(edge, self.id(), from, ctx.address(), address, fields).start();
-            }
-            Relate::Relate {
-                edge,
-                fields,
-                address,
-            } => address.do_send(Relate::generate(edge, fields, self.id(), ctx.address())),
-        };
+        }: Relate,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        Entity::new_edge(
+            edge,
+            self.id().clone(),
+            org_id,
+            ctx.address(),
+            origin,
+            fields,
+        )
+        .start();
+        Ok(Response::None)
     }
 }

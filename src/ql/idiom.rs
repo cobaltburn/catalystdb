@@ -1,5 +1,6 @@
+use actix::prelude;
+
 use crate::{
-    dbs::node::Node,
     err::Error,
     ql::{part::Part, value::Value},
 };
@@ -14,10 +15,10 @@ pub struct Idioms(pub Vec<Idiom>);
 pub struct Idiom(pub Vec<Part>);
 
 impl Idiom {
-    pub fn evaluate(&self, node: &Node) -> Result<Value, Error> {
+    pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
         let mut parts = self.0.iter();
         let part = parts.next().expect("An empty vec was passed evaluated");
-        let mut val = part.evaluate(node)?;
+        let mut val = part.evaluate(value)?;
 
         for part in parts {
             val = val.retrieve(part)?;
@@ -52,17 +53,19 @@ mod test {
     #[test]
     fn test_evaluate_all() {
         let idiom = Idiom(Vec::from([Part::All]));
-        let node = Node::new(
-            Record::new("table", 1),
-            vec![("a".into(), 1.into()), ("b".into(), 2.into())],
-        );
+        let object_2 = Value::Object(Object(BTreeMap::from([
+            ("id".into(), Record::new("table", 1).into()),
+            ("a".into(), 1.into()),
+            ("b".into(), 2.into()),
+        ])));
+
         let object = Object(BTreeMap::from([
             ("a".into(), 1.into()),
             ("b".into(), 2.into()),
             ("id".into(), Record::new("table", 1).into()),
         ]));
 
-        let fields = idiom.evaluate(&node).unwrap();
+        let fields = idiom.evaluate(&object_2).unwrap();
 
         assert_eq!(fields, Value::Object(object));
     }
@@ -70,8 +73,12 @@ mod test {
     #[test]
     fn test_evaluate_ident() {
         let idiom = Idiom(Vec::from([Part::Field(Ident("a".into()))]));
-        let node = Node::new(Record::new("table", 1), vec![("a".into(), 1.into())]);
-        let field = idiom.evaluate(&node).unwrap();
+        let object = Value::Object(Object(BTreeMap::from([
+            ("a".into(), 1.into()),
+            ("id".into(), Record::new("table", 1).into()),
+        ])));
+
+        let field = idiom.evaluate(&object).unwrap();
 
         assert_eq!(field, 1.into());
     }
@@ -83,12 +90,12 @@ mod test {
             Part::Field(Ident("b".into())),
         ]));
         let object = Object(BTreeMap::from([("b".into(), 2.into())]));
-        let node = Node::new(
-            Record::new("table", 1),
-            vec![("a".into(), Value::Object(object))],
-        );
+        let object_2 = Value::Object(Object(BTreeMap::from([
+            ("a".into(), Value::Object(object)),
+            ("id".into(), Record::new("table", 1).into()),
+        ])));
 
-        let field = idiom.evaluate(&node).unwrap();
+        let field = idiom.evaluate(&object_2).unwrap();
 
         assert_eq!(field, 2.into());
     }

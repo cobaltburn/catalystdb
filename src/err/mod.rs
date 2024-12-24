@@ -2,11 +2,14 @@ use crate::ql::{operator::Operator, value::Value};
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(PartialEq, Eq, Error, Debug)]
+#[derive(PartialEq, Eq, Error, Debug, Default)]
 #[non_exhaustive]
 pub enum Error {
     #[error("Can not create {table}:{id}")]
     CreateError { table: String, id: String },
+
+    #[error("Failed to define: {0}")]
+    DefineError(String),
 
     #[error("Invalid negative argument: {0}")]
     InvalidNegative(Value),
@@ -43,6 +46,10 @@ pub enum Error {
 
     #[error("Failed to convert {0}")]
     FailedInto(String),
+
+    #[error("for returning a None value within the error")]
+    #[default]
+    None,
 }
 
 impl Serialize for Error {

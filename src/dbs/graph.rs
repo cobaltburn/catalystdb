@@ -21,12 +21,6 @@ impl Graph {
 #[rtype(result = "Option<Addr<Table>>")]
 pub struct Retrieve(pub String);
 
-impl Retrieve {
-    pub fn new<S: Into<String>>(table: S) -> Self {
-        Retrieve(table.into())
-    }
-}
-
 impl Handler<Retrieve> for Graph {
     type Result = Option<Addr<Table>>;
 
@@ -43,15 +37,25 @@ mod test {
     #[actix_rt::test]
     async fn test_graph_table_pass() {
         let addr = Graph::new().start();
-        addr.send(Define::table("a")).await.unwrap().unwrap();
-        let _ = addr.send(graph::Retrieve::new("a")).await.unwrap().unwrap();
+        addr.send(Define::Table(String::from("a")))
+            .await
+            .unwrap()
+            .unwrap();
+        let _ = addr
+            .send(graph::Retrieve("a".into()))
+            .await
+            .unwrap()
+            .unwrap();
     }
 
     #[actix_rt::test]
     async fn test_graph_table_fail() {
         let addr = Graph::new().start();
-        addr.send(Define::table("a")).await.unwrap().unwrap();
-        let result = addr.send(graph::Retrieve::new("b")).await.unwrap();
+        addr.send(Define::Table(String::from("a")))
+            .await
+            .unwrap()
+            .unwrap();
+        let result = addr.send(graph::Retrieve("b".into())).await.unwrap();
         assert!(result.is_none());
     }
 }

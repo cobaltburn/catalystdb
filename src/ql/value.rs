@@ -1,5 +1,4 @@
 use crate::{
-    dbs::node::Node,
     err::Error,
     ql::{
         array::Array, expression::Expression, idiom::Idiom, number::Number, object::Object,
@@ -93,6 +92,17 @@ impl From<BTreeMap<Arc<str>, Value>> for Value {
     }
 }
 
+impl TryInto<Record> for Value {
+    type Error = Error;
+
+    fn try_into(self) -> Result<Record, Self::Error> {
+        if let Value::Record(record) = self {
+            return Ok(*record);
+        }
+        Err(Error::FailedInto(self.to_string()))
+    }
+}
+
 impl Value {
     pub fn is_truthy(&self) -> bool {
         match self {
@@ -107,13 +117,20 @@ impl Value {
         }
     }
 
-    pub fn evaluate(&self, node: &Node) -> Result<Value, Error> {
+    pub fn get(&self, key: &Arc<str>) -> Option<Value> {
+        match self {
+            Value::Object(object) => Some(object.get(key)?.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
         match self {
             // Value::Record(_) => todo!(),
             // Value::Array(_) => todo!(),
             // Value::Object(_) => todo!(),
-            Value::Idiom(v) => v.evaluate(node),
-            Value::Expression(v) => v.evaluate(node),
+            Value::Idiom(v) => v.evaluate(value),
+            Value::Expression(v) => v.evaluate(value),
             v => Ok(v.to_owned()),
         }
     }

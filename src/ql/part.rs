@@ -1,5 +1,4 @@
 use crate::{
-    dbs::node::Node,
     err::Error,
     ql::{ident::Ident, number::Number, value::Value},
 };
@@ -15,10 +14,10 @@ pub enum Part {
 }
 
 impl Part {
-    pub fn evaluate(&self, node: &Node) -> Result<Value, Error> {
+    pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
         Ok(match self {
-            Part::All => Value::Object(node.fields().into()),
-            Part::Field(v) => node
+            Part::All => value.clone(),
+            Part::Field(Ident(v)) => value
                 .get(v)
                 .ok_or_else(|| Error::FieldNotFound(v.to_string()))?
                 .clone(),

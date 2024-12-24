@@ -1,23 +1,16 @@
-use crate::dbs::{edge::Edge, node::Node};
+use crate::{dbs::entity::Entity, err::Error, resp::Response};
 use actix::{ActorContext, Handler, Message};
 
 #[derive(Message)]
-#[rtype(result = "()")]
+#[rtype(result = "Result<Response, Error>")]
 pub struct Delete;
 
-impl Handler<Delete> for Node {
-    type Result = ();
-
-    fn handle(&mut self, _msg: Delete, ctx: &mut Self::Context) -> Self::Result {
-        ctx.stop()
-    }
-}
-
-impl Handler<Delete> for Edge {
-    type Result = ();
+impl Handler<Delete> for Entity {
+    type Result = Result<Response, Error>;
 
     fn handle(&mut self, _msg: Delete, ctx: &mut Self::Context) -> Self::Result {
         ctx.stop();
+        Ok(Response::None)
     }
 }
 
@@ -30,14 +23,14 @@ mod test {
     use actix::{Actor, Addr};
 
     #[derive(Message)]
-    #[rtype(result = "Option<Vec<(Record, Addr<Edge>)>>")]
+    #[rtype(result = "Option<Vec<(Record, Addr<Entity>)>>")]
     pub struct GetEdges;
 
-    impl Handler<GetEdges> for Node {
-        type Result = Option<Vec<(Record, Addr<Edge>)>>;
+    impl Handler<GetEdges> for Entity {
+        type Result = Option<Vec<(Record, Addr<Entity>)>>;
 
         fn handle(&mut self, _msg: GetEdges, _ctx: &mut Self::Context) -> Self::Result {
-            let edges = self.edges.clone().into_iter().collect();
+            let edges = self.edges().clone().into_iter().collect();
             Some(edges)
         }
     }
@@ -45,16 +38,19 @@ mod test {
     #[actix::test]
     async fn delete_test() {
         let fields: Vec<(Arc<str>, _)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
-        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
+        let a_id = Record::new("a", "1");
+        let b_id = Record::new("b", "2");
+        let a = Entity::new_node(a_id, fields.clone()).start();
+        let b = Entity::new_node(b_id.clone(), fields.clone()).start();
         let _ = a
-            .send(Relate::Relate {
+            .send(Relate {
                 edge: "e_1".to_string(),
                 fields: vec![],
-                address: b.clone(),
+                org_id: b_id,
+                origin: b.clone(),
             })
             .await;
-        b.send(Delete).await.unwrap();
+        b.send(Delete).await.unwrap().unwrap();
         let res = a.send(GetEdges).await.unwrap().unwrap();
         assert!(res.is_empty())
     }
@@ -62,24 +58,29 @@ mod test {
     #[actix::test]
     async fn delete_two_test() {
         let fields: Vec<(Arc<str>, _)> = Vec::new();
-        let a = Node::new(Record::new("a", "1"), fields.clone()).start();
-        let b = Node::new(Record::new("b", "2"), fields.clone()).start();
-        let c = Node::new(Record::new("c", "2"), fields.clone()).start();
+        let a_id = Record::new("a", "1");
+        let b_id = Record::new("b", "2");
+        let c_id = Record::new("c", "2");
+        let a = Entity::new_node(a_id, fields.clone()).start();
+        let b = Entity::new_node(b_id.clone(), fields.clone()).start();
+        let c = Entity::new_node(c_id.clone(), fields.clone()).start();
         let _ = a
-            .send(Relate::Relate {
+            .send(Relate {
                 edge: "e_1".to_string(),
                 fields: vec![],
-                address: b.clone(),
+                org_id: b_id,
+                origin: b.clone(),
             })
             .await;
         let _ = a
-            .send(Relate::Relate {
+            .send(Relate {
                 edge: "e_2".to_string(),
                 fields: vec![],
-                address: c.clone(),
+                org_id: c_id,
+                origin: c.clone(),
             })
             .await;
-        b.send(Delete).await.unwrap();
+        b.send(Delete).await.unwrap().unwrap();
         let res = a.send(GetEdges).await.unwrap().unwrap();
         let (id, _) = res.first().unwrap();
         let table = id.table.to_string();

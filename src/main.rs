@@ -7,6 +7,7 @@ pub mod err;
 pub mod func;
 pub mod parser;
 pub mod ql;
+pub mod resp;
 pub mod server;
 
 struct AppState {

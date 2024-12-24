@@ -1,23 +1,21 @@
-use crate::dbs::{graph::Graph, table::Table};
+use crate::{
+    dbs::{graph::Graph, table::Table},
+    err::Error::{self, DefineError},
+    resp::Response,
+};
 use actix::{Actor, Handler, Message};
 use core::panic;
 
 #[derive(Message)]
-#[rtype(result = "Result<(), String>")]
+#[rtype(result = "Result<Response, Error>")]
 #[non_exhaustive]
 pub enum Define {
     Table(String),
     Index,
 }
 
-impl Define {
-    pub fn table<S: Into<String>>(table: S) -> Self {
-        Define::Table(table.into())
-    }
-}
-
 impl Handler<Define> for Graph {
-    type Result = Result<(), String>;
+    type Result = Result<Response, Error>;
 
     fn handle(&mut self, msg: Define, _ctx: &mut Self::Context) -> Self::Result {
         let Define::Table(table) = msg else {
@@ -27,8 +25,8 @@ impl Handler<Define> for Graph {
         if !self.tables.contains_key(&table) {
             self.tables.insert(table.clone(), Table::new(table).start());
         } else {
-            return Err("Table already exists".into());
+            return Err(DefineError(table));
         }
-        Ok(())
+        Ok(Response::None)
     }
 }

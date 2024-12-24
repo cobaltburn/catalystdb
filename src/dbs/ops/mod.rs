@@ -5,6 +5,5 @@ pub mod get;
 pub mod insert;
 pub mod relate;
 pub mod remove;
-pub mod response;
 pub mod update;
 pub mod walk;

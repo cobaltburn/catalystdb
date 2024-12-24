@@ -1,5 +1,4 @@
 use crate::{
-    dbs::node::Node,
     err::Error,
     ql::{operator::Operator, value::Value},
 };
@@ -29,16 +28,16 @@ impl fmt::Display for Expression {
 }
 
 impl Expression {
-    pub fn evaluate(&self, node: &Node) -> Result<Value, Error> {
+    pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
         Ok(match self {
             Expression::Unary { op, expr } => match op {
-                Operator::Neg => expr.evaluate(node)?.try_neg()?,
-                Operator::Not => expr.evaluate(node)?.try_not()?,
+                Operator::Neg => expr.evaluate(value)?.try_neg()?,
+                Operator::Not => expr.evaluate(value)?.try_not()?,
                 op => return Err(Error::InvalidOperator(op.clone())),
             },
             Expression::Binary { left, op, right } => {
-                let left = left.evaluate(node)?;
-                let right = right.evaluate(node)?;
+                let left = left.evaluate(value)?;
+                let right = right.evaluate(value)?;
                 match op {
                     Operator::Or => Value::Bool(left.is_truthy() || right.is_truthy()),
                     Operator::And => Value::Bool(left.is_truthy() && right.is_truthy()),
@@ -68,33 +67,29 @@ mod test {
 
     #[test]
     fn test_not_expression_false() {
-        let node = Node::new(Record::new("table", 1), vec![]);
         let false_exp = Expression::Unary {
             op: Operator::Not,
             expr: Value::Bool(true),
         };
-        let false_eval = false_exp.evaluate(&node).unwrap();
+        let false_eval = false_exp.evaluate(&Value::None).unwrap();
 
         assert_eq!(false_eval, Value::Bool(false));
     }
 
     #[test]
     fn test_not_expression_true() {
-        let node = Node::new(Record::new("table", 1), vec![]);
         let true_exp = Expression::Unary {
             op: Operator::Not,
             expr: Value::Bool(false),
         };
-        let true_eval = true_exp.evaluate(&node).unwrap();
+        let true_eval = true_exp.evaluate(&Value::None).unwrap();
 
         assert_eq!(true_eval, Value::Bool(true));
     }
 
     #[test]
     fn test_or_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: true.into(),
                 op: Operator::Or,
@@ -119,7 +114,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -130,9 +125,7 @@ mod test {
 
     #[test]
     fn test_and_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: true.into(),
                 op: Operator::And,
@@ -157,7 +150,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -168,9 +161,7 @@ mod test {
 
     #[test]
     fn test_bool_eq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: true.into(),
                 op: Operator::Eq,
@@ -195,7 +186,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -206,9 +197,7 @@ mod test {
 
     #[test]
     fn test_num_eq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: 1.into(),
                 op: Operator::Eq,
@@ -228,7 +217,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -238,9 +227,7 @@ mod test {
 
     #[test]
     fn test_string_eq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: "a".into(),
                 op: Operator::Eq,
@@ -260,7 +247,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -278,9 +265,7 @@ mod test {
             ("a".into(), 2.into()),
             ("id".into(), Record::new("table", 1).into()),
         ]));
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Object(obj1.clone()),
                 op: Operator::Eq,
@@ -300,7 +285,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -312,9 +297,7 @@ mod test {
     fn test_record_eq_expression() {
         let r1 = Record::new("a", 1);
         let r2 = Record::new("b", 2);
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Record(Box::new(r1.clone())),
                 op: Operator::Eq,
@@ -334,7 +317,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -346,9 +329,7 @@ mod test {
     fn test_array_eq_expression() {
         let array1 = Array(vec![Value::None]);
         let array2 = Array(vec![Value::None, Value::None, Value::Null]);
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Array(array1.clone()),
                 op: Operator::Eq,
@@ -368,7 +349,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -377,9 +358,7 @@ mod test {
 
         let array1 = Array(vec![Value::Number(1.into())]);
         let array2 = Array(vec![Value::Number(2.into())]);
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Array(array1.clone()),
                 op: Operator::Eq,
@@ -399,7 +378,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -407,12 +386,9 @@ mod test {
         assert_eq!(expressions[2], Value::Bool(false));
     }
 
-    //TODO need to flip eq
     #[test]
     fn test_bool_nteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: true.into(),
                 op: Operator::NtEq,
@@ -437,7 +413,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -448,9 +424,7 @@ mod test {
 
     #[test]
     fn test_num_nteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: 1.into(),
                 op: Operator::NtEq,
@@ -470,7 +444,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -480,9 +454,7 @@ mod test {
 
     #[test]
     fn test_string_nteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: "a".into(),
                 op: Operator::NtEq,
@@ -502,7 +474,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::None).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -520,9 +492,7 @@ mod test {
             ("a".into(), 2.into()),
             ("id".into(), Record::new("table", 1).into()),
         ]));
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Object(obj1.clone()),
                 op: Operator::NtEq,
@@ -542,7 +512,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -554,9 +524,7 @@ mod test {
     fn test_record_nteq_expression() {
         let r1 = Record::new("a", 1);
         let r2 = Record::new("b", 2);
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Record(Box::new(r1.clone())),
                 op: Operator::NtEq,
@@ -576,7 +544,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -588,9 +556,7 @@ mod test {
     fn test_array_nteq_expression() {
         let array1 = Array(vec![Value::None]);
         let array2 = Array(vec![Value::None, Value::None, Value::Null]);
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Array(array1.clone()),
                 op: Operator::NtEq,
@@ -610,7 +576,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -619,9 +585,7 @@ mod test {
 
         let array1 = Array(vec![Value::Number(1.into())]);
         let array2 = Array(vec![Value::Number(2.into())]);
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Array(array1.clone()),
                 op: Operator::NtEq,
@@ -641,7 +605,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -651,9 +615,7 @@ mod test {
 
     #[test]
     fn test_int_lt_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: 1.into(),
                 op: Operator::Lt,
@@ -673,7 +635,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -683,9 +645,7 @@ mod test {
 
     #[test]
     fn test_float_lt_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::Lt,
@@ -705,7 +665,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -715,9 +675,7 @@ mod test {
 
     #[test]
     fn test_number_lt_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::Lt,
@@ -737,7 +695,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -747,9 +705,7 @@ mod test {
 
     #[test]
     fn test_int_lteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: 1.into(),
                 op: Operator::LtEq,
@@ -769,7 +725,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -779,9 +735,7 @@ mod test {
 
     #[test]
     fn test_float_lteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::LtEq,
@@ -801,7 +755,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -811,9 +765,7 @@ mod test {
 
     #[test]
     fn test_number_lteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::LtEq,
@@ -833,7 +785,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -844,9 +796,7 @@ mod test {
     // TODO need to change
     #[test]
     fn test_int_gt_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: 1.into(),
                 op: Operator::Gt,
@@ -866,7 +816,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -876,9 +826,7 @@ mod test {
 
     #[test]
     fn test_float_gt_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::Gt,
@@ -898,7 +846,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -908,9 +856,7 @@ mod test {
 
     #[test]
     fn test_number_gt_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::Gt,
@@ -930,7 +876,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(false));
@@ -940,9 +886,7 @@ mod test {
 
     #[test]
     fn test_int_gteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: 1.into(),
                 op: Operator::GtEq,
@@ -962,7 +906,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -972,9 +916,7 @@ mod test {
 
     #[test]
     fn test_float_gteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::GtEq,
@@ -994,7 +936,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));
@@ -1004,9 +946,7 @@ mod test {
 
     #[test]
     fn test_number_gteq_expression() {
-        let node = Node::new(Record::new("table", 1), vec![]);
-        let mut expressions = Vec::new();
-        expressions.append(&mut vec![
+        let expressions = Vec::from([
             Expression::Binary {
                 left: Value::Number(Number::Float(1.0)),
                 op: Operator::GtEq,
@@ -1026,7 +966,7 @@ mod test {
 
         let expressions: Vec<Value> = expressions
             .into_iter()
-            .map(|expr| expr.evaluate(&node).unwrap())
+            .map(|expr| expr.evaluate(&Value::Object(Object::default())).unwrap())
             .collect();
 
         assert_eq!(expressions[0], Value::Bool(true));

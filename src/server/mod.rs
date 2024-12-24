@@ -14,5 +14,6 @@ async fn query(
     web::Json(Query { query }): web::Json<Query>,
 ) -> impl Responder {
     let _graph = state.graph.clone();
+    let _ = query;
     HttpResponse::Ok().body("hello world")
 }

@@ -1,26 +1,19 @@
 use crate::{
-    dbs::node::Node,
-    dbs::ops::response::Response,
+    dbs::entity::Entity,
     ql::{record::Record, value::Value},
+    resp::Response,
 };
-use actix::{Actor, Addr, Context, Handler, Message};
+use actix::{Actor, Addr, Context, Handler, Message, ResponseFuture};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::{collections::HashMap, sync::Arc};
-
-#[derive(Debug)]
-pub struct Row(pub Record, pub Addr<Node>);
-
-impl Row {
-    pub fn addr(&self) -> Addr<Node> {
-        let Row(_, addr) = self;
-        addr.clone()
-    }
-}
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Debug)]
 pub struct Table {
     pub name: Arc<str>,
-    pub nodes: HashMap<Value, Addr<Node>>,
+    pub nodes: Arc<RwLock<HashMap<Value, Addr<Entity>>>>,
 }
 
 impl Actor for Table {
@@ -31,20 +24,18 @@ impl Table {
     pub fn new<S: Into<Arc<str>>>(name: S) -> Self {
         Table {
             name: name.into(),
-            nodes: HashMap::new(),
+            nodes: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    pub fn insert(&mut self, value: Value, node: Addr<Node>) {
-        self.nodes.insert(value, node);
+    pub fn insert(&mut self, value: Value, node: Addr<Entity>) {
+        let mut nodes = self.nodes.write().unwrap();
+        nodes.insert(value, node);
     }
 
     pub fn contains(&self, value: &Value) -> bool {
-        self.nodes.contains_key(value)
-    }
-
-    pub fn get(&self, record: Value) -> Option<Addr<Node>> {
-        Some(self.nodes.get(&record)?.clone())
+        let nodes = self.nodes.read().unwrap();
+        nodes.contains_key(value)
     }
 }
 
@@ -56,16 +47,28 @@ pub enum Retrieve {
 }
 
 impl Handler<Retrieve> for Table {
-    type Result = Response;
+    type Result = ResponseFuture<Response>;
 
     fn handle(&mut self, msg: Retrieve, _ctx: &mut Self::Context) -> Self::Result {
-        match msg {
-            Retrieve::Iterator => {
-                Response::Table(self.nodes.par_iter().map(|node| node.1.clone()).collect())
+        let nodes = self.nodes.clone();
+        Box::pin(async move {
+            match msg {
+                Retrieve::Iterator => Response::Table(
+                    nodes
+                        .read()
+                        .unwrap()
+                        .par_iter()
+                        .map(|(_, addr)| addr.clone())
+                        .collect(),
+                ),
+                Retrieve::Record(Record { table: _, id }) => nodes
+                    .read()
+                    .unwrap()
+                    .get(&id)
+                    .map_or(Response::None, |addr| Response::Table(vec![addr.clone()])),
             }
-            Retrieve::Record(Record { table: _, id }) => self
-                .get(id)
-                .map_or(Response::None, |addr| Response::Table(vec![addr])),
-        }
+        })
     }
 }
+
+mod test {}
