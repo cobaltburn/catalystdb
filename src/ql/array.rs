@@ -2,14 +2,51 @@ use crate::{
     err::Error,
     ql::{ident::Ident, number::Number, part::Part, value::Value},
 };
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Array(pub Vec<Value>);
 
+impl From<Value> for Array {
+    fn from(value: Value) -> Self {
+        Array(vec![value])
+    }
+}
+
 impl From<Vec<Value>> for Array {
     fn from(value: Vec<Value>) -> Self {
         Self(value)
+    }
+}
+
+impl FromIterator<Value> for Array {
+    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
+        Array(iter.into_iter().collect())
+    }
+}
+
+impl Deref for Array {
+    type Target = Vec<Value>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Array {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl IntoIterator for Array {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

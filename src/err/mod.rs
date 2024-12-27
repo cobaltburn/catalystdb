@@ -1,4 +1,7 @@
-use crate::ql::{operator::Operator, value::Value};
+use crate::{
+    ql::{operator::Operator, value::Value},
+    resp::Response,
+};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -44,8 +47,14 @@ pub enum Error {
     #[error("{0} is an out of bounds")]
     OutOfBoundsIndex(usize),
 
-    #[error("Failed to convert {0}")]
-    FailedInto(String),
+    #[error("Failed to convert value {from} into a {into}")]
+    FailedIntoValue { from: Value, into: String },
+
+    #[error("Failed to convert response {from} into a {into}")]
+    FailedIntoResponse { from: Response, into: String },
+
+    #[error("")]
+    InvalidStatement(),
 
     #[error("for returning a None value within the error")]
     #[default]

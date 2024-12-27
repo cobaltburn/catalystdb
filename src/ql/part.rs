@@ -1,6 +1,6 @@
 use crate::{
     err::Error,
-    ql::{ident::Ident, number::Number, value::Value},
+    ql::{edge::Edge, ident::Ident, number::Number, step::Step, value::Value},
 };
 use std::fmt;
 
@@ -11,6 +11,8 @@ pub enum Part {
     Field(Ident),
     Index(Number),
     Value(Value),
+    Step(Step),
+    Edge(Edge),
 }
 
 impl Part {
@@ -33,6 +35,8 @@ impl fmt::Display for Part {
             Part::Field(v) => write!(f, "{v}"),
             Part::Index(v) => write!(f, "{v}"),
             Part::Value(v) => write!(f, "{v}"),
+            Part::Edge(v) => write!(f, "{v}"),
+            Part::Step(v) => write!(f, "{v}"),
         }
     }
 }

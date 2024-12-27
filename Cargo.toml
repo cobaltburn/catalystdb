@@ -7,7 +7,6 @@ edition = "2021"
 actix = "0.13.5"
 actix-rt = "2.10.0"
 actix-web = "4.9.0"
-anyhow = "1.0.86"
 async-trait = "0.1.81"
 rayon = "1.10.0"
 serde = { version = "1.0.207", features = ["derive"] }

@@ -2,6 +2,7 @@ use crate::{
     dbs::entity::Entity,
     err::Error,
     ql::{
+        condition::Condition,
         fields::{Field, Fields},
         value::Value,
     },
@@ -14,15 +15,12 @@ use std::collections::BTreeMap;
 #[rtype(result = "Result<Response, Error>")]
 pub struct Get {
     pub fields: Fields,
-    pub filter: Option<Value>,
+    pub filter: Option<Condition>,
 }
 
 impl Get {
-    pub fn new<V: Into<Fields>>(fields: V, filter: Option<Value>) -> Self {
-        Get {
-            fields: fields.into(),
-            filter,
-        }
+    pub fn new(fields: Fields, filter: Option<Condition>) -> Self {
+        Get { fields, filter }
     }
 }
 
@@ -73,7 +71,7 @@ mod test {
         let node = node.start();
         let res = node
             .send(Get::new(
-                Fields::new(vec![
+                Fields(vec![
                     Field::WildCard,
                     Field::Single {
                         expr: Value::Idiom(Idiom(vec![Part::Field(Ident("c".into()))])),
@@ -104,7 +102,7 @@ mod test {
         );
         let node = node.start();
         let res = node
-            .send(Get::new(Fields::new(vec![Field::WildCard]), None))
+            .send(Get::new(Fields(vec![Field::WildCard]), None))
             .await
             .unwrap();
 
@@ -127,12 +125,12 @@ mod test {
         let node = node.start();
         let res = node
             .send(Get::new(
-                Fields::new(vec![Field::WildCard]),
-                Some(Value::Expression(Box::new(Expression::Binary {
+                Fields(vec![Field::WildCard]),
+                Some(Condition(Value::Expression(Box::new(Expression::Binary {
                     left: Value::Idiom(Idiom(vec![Part::Field(Ident("c".into()))])),
                     op: Operator::Eq,
                     right: "c".into(),
-                }))),
+                })))),
             ))
             .await
             .unwrap();
@@ -156,12 +154,12 @@ mod test {
         let node = node.start();
         let res = node
             .send(Get::new(
-                Fields::new(vec![Field::WildCard]),
-                Some(Value::Expression(Box::new(Expression::Binary {
+                Fields(vec![Field::WildCard]),
+                Some(Condition(Value::Expression(Box::new(Expression::Binary {
                     left: Value::Idiom(Idiom(vec![Part::Field(Ident("b".into()))])),
                     op: Operator::Eq,
                     right: "c".into(),
-                }))),
+                })))),
             ))
             .await
             .unwrap();
@@ -180,7 +178,7 @@ mod test {
         let node = node.start();
         let res = node
             .send(Get::new(
-                Fields::new(vec![
+                Fields(vec![
                     Field::Single {
                         expr: Value::Idiom(Idiom(vec![Part::Field(Ident("c".into()))])),
                         alias: None,
@@ -213,7 +211,7 @@ mod test {
         let node = node.start();
         let res = node
             .send(Get::new(
-                Fields::new(vec![
+                Fields(vec![
                     Field::Single {
                         expr: Value::Idiom(Idiom(vec![Part::Field(Ident("c".into()))])),
                         alias: Some(String::from("alias")),

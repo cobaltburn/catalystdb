@@ -40,7 +40,10 @@ mod test {
     use super::*;
     use crate::{
         dbs::ops::get::Get,
-        ql::{fields::Field, value::Value},
+        ql::{
+            fields::{Field, Fields},
+            value::Value,
+        },
     };
     use std::collections::BTreeMap;
 
@@ -56,7 +59,7 @@ mod test {
             .unwrap()
             .unwrap();
         let result: Value = node
-            .send(Get::new(vec![Field::WildCard], None))
+            .send(Get::new(Fields(vec![Field::WildCard]), None))
             .await
             .unwrap()
             .unwrap()

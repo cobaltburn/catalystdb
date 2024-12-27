@@ -1,7 +1,10 @@
 use crate::{
     dbs::entity::Entity,
     err::Error,
-    ql::{array::Array, fields::Field, record::Record, value::Value},
+    ql::{
+        array::Array, direction::Direction, fields::Field, record::Record, table::Table,
+        value::Value,
+    },
     resp::Response,
 };
 use actix::{Handler, Message, ResponseFuture};
@@ -31,13 +34,14 @@ impl Walk {
 
 #[derive(Debug, Clone)]
 pub struct Step {
-    pub table: String,
+    pub dir: Direction,
+    pub table: Table,
     pub filter: Option<Value>,
 }
 
 impl Step {
-    pub fn new(table: String, filter: Option<Value>) -> Step {
-        Step { table, filter }
+    pub fn new(dir: Direction, table: Table, filter: Option<Value>) -> Step {
+        Step { dir, table, filter }
     }
 }
 
@@ -66,13 +70,23 @@ impl Handler<Walk> for Entity {
                 return Ok(Response::Value(fields));
             }
 
-            let Step { table, filter } = path.get(idx).unwrap();
+            let Step { dir, table, filter } = path.get(idx).unwrap();
+
             let mut values = Vec::new();
 
             for (rec, edge) in entity.edges() {
-                if !(*rec.table == *table && rec != &origin) {
+                if !(*rec.table == *table.0 && rec != &origin) {
                     continue;
                 }
+
+                let edge = match dir {
+                    Direction::In if entity.is_edge() && edge.is_out() => edge.edge(),
+                    Direction::Out if entity.is_edge() && edge.is_in() => edge.edge(),
+                    Direction::In if entity.is_node() && edge.is_in() => edge.edge(),
+                    Direction::Out if entity.is_node() && edge.is_out() => edge.edge(),
+                    Direction::Both => edge.edge(),
+                    _ => continue,
+                };
 
                 let walk = Walk {
                     path: path.clone(),
@@ -113,45 +127,42 @@ mod test {
     use super::*;
     use crate::{
         dbs::ops::relate::Relate,
-        ql::{
-            expression::Expression, ident::Ident, idiom::Idiom, number::Number, operator::Operator,
-            part::Part, strand::Strand,
-        },
+        ql::{expression::Expression, ident::Ident, operator::Operator, strand::Strand},
     };
     use actix::Actor;
 
     #[actix::test]
     async fn walk_test() {
-        let fields_1: Vec<(Arc<str>, _)> = Vec::from([("val1".into(), 1.into())]);
-        let fields_2: Vec<(Arc<str>, _)> = Vec::from([("val2".into(), 2.into())]);
-        let fields_3: Vec<(Arc<str>, _)> = Vec::from([("val3".into(), 3.into())]);
+        let fields_1 = Vec::new();
+        let fields_2 = Vec::new();
+        let fields_3 = Vec::new();
         let a_id = Record::new("a", "1");
         let b_id = Record::new("b", "2");
         let c_id = Record::new("c", "2");
         let a = Entity::new_node(a_id.clone(), fields_1).start();
         let b = Entity::new_node(b_id.clone(), fields_2).start();
         let c = Entity::new_node(c_id.clone(), fields_3).start();
-        let _ = a
+        let _ = b
             .send(Relate {
                 edge: "e_1".to_string(),
                 fields: vec![],
-                org_id: b_id,
-                origin: b.clone(),
+                org_id: a_id.clone(),
+                origin: a.clone(),
             })
             .await;
-        let _ = b
+        let _ = c
             .send(Relate {
                 edge: "e_2".to_string(),
                 fields: vec![],
-                org_id: c_id.clone(),
-                origin: c.clone(),
+                org_id: b_id.clone(),
+                origin: b.clone(),
             })
             .await;
         let path = vec![
-            Step::new(String::from("e_1"), None),
-            Step::new(String::from("b"), None),
-            Step::new(String::from("e_2"), None),
-            Step::new(String::from("c"), None),
+            Step::new(Direction::In, String::from("e_1").into(), None),
+            Step::new(Direction::In, String::from("b").into(), None),
+            Step::new(Direction::In, String::from("e_2").into(), None),
+            Step::new(Direction::In, String::from("c").into(), None),
         ];
 
         let response = a
@@ -177,39 +188,41 @@ mod test {
         let a = Entity::new_node(a_id.clone(), vec![("val1".into(), 1.into())]).start();
         let b = Entity::new_node(b_id.clone(), vec![("val2".into(), 2.into())]).start();
         let c = Entity::new_node(c_id.clone(), vec![("val3".into(), "x".into())]).start();
-        let _ = a
+        let _ = b
             .send(Relate {
                 edge: "e_1".to_string(),
                 fields: vec![],
-                org_id: b_id,
+                org_id: a_id.clone(),
+                origin: a.clone(),
+            })
+            .await;
+
+        let _ = c
+            .send(Relate {
+                edge: "e_2".to_string(),
+                fields: vec![],
+                org_id: b_id.clone(),
                 origin: b.clone(),
             })
             .await;
 
-        let _ = b
-            .send(Relate {
-                edge: "e_2".to_string(),
-                fields: vec![],
-                org_id: c_id.clone(),
-                origin: c.clone(),
-            })
-            .await;
-
         let path = vec![
-            Step::new(String::from("e_1"), None),
+            Step::new(Direction::In, String::from("e_1").into(), None),
             Step::new(
-                String::from("b"),
+                Direction::In,
+                String::from("b").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
-                    left: Value::Idiom(Idiom(vec![Part::Field(Ident("val2".into()))])),
+                    left: Ident("val2".into()).into(),
                     op: Operator::Eq,
-                    right: Value::Number(Number::Int(2)),
+                    right: 2.into(),
                 }))),
             ),
-            Step::new(String::from("e_2"), None),
+            Step::new(Direction::In, String::from("e_2").into(), None),
             Step::new(
-                String::from("c"),
+                Direction::In,
+                String::from("c").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
-                    left: Value::Idiom(Idiom(vec![Part::Field(Ident("val3".into()))])),
+                    left: Ident("val3".into()).into(),
                     op: Operator::Eq,
                     right: Value::String(Strand("x".into())),
                 }))),
@@ -246,48 +259,50 @@ mod test {
         let b = Entity::new_node(b_id.clone(), vec![("val2".into(), 2.into())]).start();
         let c = Entity::new_node(c_id.clone(), fields_3).start();
         let d = Entity::new_node(d_id.clone(), vec![("val4".into(), 4.into())]).start();
-        let _ = a
+        let _ = b
             .send(Relate {
                 edge: "e_1".to_string(),
                 fields: vec![],
-                org_id: b_id,
+                org_id: a_id.clone(),
+                origin: a.clone(),
+            })
+            .await;
+
+        let _ = c
+            .send(Relate {
+                edge: "e_2".to_string(),
+                fields: vec![],
+                org_id: b_id.clone(),
                 origin: b.clone(),
             })
             .await;
 
-        let _ = b
-            .send(Relate {
-                edge: "e_2".to_string(),
-                fields: vec![],
-                org_id: c_id.clone(),
-                origin: c.clone(),
-            })
-            .await;
-
-        let _ = b
+        let _ = d
             .send(Relate {
                 edge: "e_3".to_string(),
                 fields: vec![],
-                org_id: d_id.clone(),
-                origin: d.clone(),
+                org_id: b_id.clone(),
+                origin: b.clone(),
             })
             .await;
 
         let path = vec![
-            Step::new(String::from("e_1"), None),
+            Step::new(Direction::In, String::from("e_1").into(), None),
             Step::new(
-                String::from("b"),
+                Direction::In,
+                String::from("b").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
-                    left: Value::Idiom(Idiom(vec![Part::Field(Ident("val2".into()))])),
+                    left: Ident("val2".into()).into(),
                     op: Operator::Eq,
-                    right: Value::Number(Number::Int(2)),
+                    right: 2.into(),
                 }))),
             ),
-            Step::new(String::from("e_2"), None),
+            Step::new(Direction::In, String::from("e_2").into(), None),
             Step::new(
-                String::from("c"),
+                Direction::In,
+                String::from("c").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
-                    left: Value::Idiom(Idiom(vec![Part::Field(Ident("x".into()))])),
+                    left: Ident("x".into()).into(),
                     op: Operator::Eq,
                     right: Value::String(Strand("x".into())),
                 }))),

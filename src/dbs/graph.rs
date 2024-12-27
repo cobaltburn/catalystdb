@@ -1,4 +1,7 @@
-use crate::dbs::table::Table;
+use crate::{
+    dbs::table::Table,
+    ql::{table, value::Value},
+};
 use actix::{Actor, Addr, Context, Handler, Message};
 use std::collections::BTreeMap;
 
@@ -19,13 +22,17 @@ impl Graph {
 
 #[derive(Message)]
 #[rtype(result = "Option<Addr<Table>>")]
-pub struct Retrieve(pub String);
+pub struct Retrieve(pub Value);
 
 impl Handler<Retrieve> for Graph {
     type Result = Option<Addr<Table>>;
 
-    fn handle(&mut self, Retrieve(table): Retrieve, _ctx: &mut Self::Context) -> Self::Result {
-        Some(self.tables.get(&table)?.clone())
+    fn handle(&mut self, Retrieve(value): Retrieve, _ctx: &mut Self::Context) -> Self::Result {
+        Some(match &value {
+            Value::Record(record) => self.tables.get(&record.table.to_string())?.clone(),
+            Value::Table(table::Table(table)) => self.tables.get(table)?.clone(),
+            _ => return None,
+        })
     }
 }
 

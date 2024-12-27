@@ -4,7 +4,6 @@ use dbs::graph::Graph;
 
 pub mod dbs;
 pub mod err;
-pub mod func;
 pub mod parser;
 pub mod ql;
 pub mod resp;

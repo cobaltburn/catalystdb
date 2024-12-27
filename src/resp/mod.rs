@@ -4,12 +4,13 @@ use crate::{
     ql::{record::Record, value::Value},
 };
 use actix::{dev::MessageResponse, Actor, Addr, Message};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, fmt, sync::Arc};
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Response {
     Value(Value),
     Table(Vec<Addr<Entity>>),
+    Record(Addr<Entity>),
     None,
 }
 
@@ -50,11 +51,42 @@ impl From<Record> for Response {
 impl TryFrom<Response> for Value {
     type Error = Error;
 
-    fn try_from(value: Response) -> Result<Self, Self::Error> {
-        if let Response::Value(value) = value {
-            return Ok(value);
+    fn try_from(response: Response) -> Result<Self, Self::Error> {
+        if let Response::Value(response) = response {
+            return Ok(response);
         }
-        Err(Error::FailedInto(format!("{value:?}")))
+        Err(Error::FailedIntoResponse {
+            from: response,
+            into: String::from("Value"),
+        })
+    }
+}
+
+impl TryFrom<Response> for Vec<Addr<Entity>> {
+    type Error = Error;
+
+    fn try_from(response: Response) -> Result<Self, Self::Error> {
+        if let Response::Table(response) = response {
+            return Ok(response);
+        }
+        Err(Error::FailedIntoResponse {
+            from: response,
+            into: String::from("Vec<Addr<Entity>>"),
+        })
+    }
+}
+
+impl TryFrom<Response> for Addr<Entity> {
+    type Error = Error;
+
+    fn try_from(response: Response) -> Result<Self, Self::Error> {
+        if let Response::Record(response) = response {
+            return Ok(response);
+        }
+        Err(Error::FailedIntoResponse {
+            from: response,
+            into: String::from("Addr<Entity>"),
+        })
     }
 }
 
@@ -63,15 +95,14 @@ impl From<Vec<Addr<Entity>>> for Response {
         Response::Table(records)
     }
 }
-impl TryInto<Vec<Addr<Entity>>> for Response {
-    type Error = ();
 
-    fn try_into(
-        self,
-    ) -> Result<Vec<Addr<Entity>>, <Response as TryInto<Vec<Addr<Entity>>>>::Error> {
-        if let Response::Table(node) = self {
-            return Ok(node);
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Response::Value(v) => write!(f, "{v}"),
+            Response::Table(v) => write!(f, "{v:#?}"),
+            Response::Record(v) => write!(f, "{v:#?}"),
+            Response::None => write!(f, "NONE"),
         }
-        Err(())
     }
 }

@@ -32,7 +32,10 @@ mod test {
     use super::*;
     use crate::{
         dbs::ops::get::Get,
-        ql::{fields::Field, record::Record},
+        ql::{
+            fields::{Field, Fields},
+            record::Record,
+        },
     };
     use actix::Actor;
 
@@ -48,7 +51,7 @@ mod test {
         .unwrap()
         .unwrap();
         let result: Value = a
-            .send(Get::new(vec![Field::WildCard], None))
+            .send(Get::new(Fields(vec![Field::WildCard]), None))
             .await
             .unwrap()
             .unwrap()

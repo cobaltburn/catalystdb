@@ -1,24 +1,49 @@
 use crate::{
     dbs::ops::{delete::Delete, remove::Remove},
     err::Error,
-    ql::{ident::Ident, record::Record, value::Value},
+    ql::{record::Record, value::Value},
 };
 use actix::{Actor, Addr, AsyncContext, Context, Handler, Message};
 use std::{collections::BTreeMap, sync::Arc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum Entity {
     Node {
         id: Record,
         fields: BTreeMap<Arc<str>, Value>,
-        edges: BTreeMap<Record, Addr<Entity>>,
+        edges: BTreeMap<Record, Path>,
     },
     Edge {
         id: Record,
         fields: BTreeMap<Arc<str>, Value>,
-        edges: BTreeMap<Record, Addr<Entity>>,
+        edges: BTreeMap<Record, Path>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Path {
+    In(Addr<Entity>),
+    Out(Addr<Entity>),
+}
+
+impl Path {
+    pub fn edge(&self) -> &Addr<Entity> {
+        match self {
+            Path::In(addr) => addr,
+            Path::Out(addr) => addr,
+        }
+    }
+
+    pub fn is_in(&self) -> bool {
+        matches!(self, Path::In(_))
+    }
+
+    pub fn is_out(&self) -> bool {
+        matches!(self, Path::Out(_))
+    }
 }
 
 impl Actor for Entity {
@@ -26,7 +51,9 @@ impl Actor for Entity {
 
     fn stopping(&mut self, _ctx: &mut Self::Context) -> actix::prelude::Running {
         match self {
-            Entity::Node { edges, .. } => edges.iter().for_each(|(_, edge)| edge.do_send(Delete)),
+            Entity::Node { edges, .. } => edges
+                .iter()
+                .for_each(|(_, path)| path.edge().do_send(Delete)),
             Entity::Edge { id, fields, edges } => {
                 let in_rec: Record = fields
                     .get("in".into())
@@ -40,8 +67,8 @@ impl Actor for Entity {
                     .clone()
                     .try_into()
                     .unwrap();
-                let origin = edges.get(&in_rec).unwrap();
-                let dest = edges.get(&out_rec).unwrap();
+                let origin = edges.get(&in_rec).unwrap().edge();
+                let dest = edges.get(&out_rec).unwrap().edge();
                 origin.do_send(Remove::Edge(id.clone()));
                 dest.do_send(Remove::Edge(id.clone()));
             }
@@ -63,7 +90,7 @@ impl Actor for Entity {
 }
 
 impl Entity {
-    pub fn edges(&self) -> &BTreeMap<Record, Addr<Entity>> {
+    pub fn edges(&self) -> &BTreeMap<Record, Path> {
         match self {
             Entity::Node { edges, .. } => edges,
             Entity::Edge { edges, .. } => edges,
@@ -101,10 +128,7 @@ impl Entity {
 // Node
 impl Entity {
     pub fn is_node(&self) -> bool {
-        match self {
-            Entity::Node { .. } => true,
-            _ => false,
-        }
+        matches!(self, Entity::Node { .. })
     }
 
     pub fn new_node(id: Record, fields: Vec<(Arc<str>, Value)>) -> Self {
@@ -121,25 +145,28 @@ impl Entity {
 // Edge
 impl Entity {
     pub fn is_edge(&self) -> bool {
-        match self {
-            Entity::Edge { .. } => true,
-            _ => false,
-        }
+        matches!(self, Entity::Edge { .. })
     }
 
     pub fn new_edge(
         edge: String,
         dest_id: Record,
         org_id: Record,
-        dest: Addr<Entity>,
+        destination: Addr<Entity>,
         origin: Addr<Entity>,
         fields: Vec<(String, Value)>,
     ) -> Self {
         let mut fields: BTreeMap<Arc<str>, Value> =
             fields.into_iter().map(|(k, v)| (k.into(), v)).collect();
+
         fields.insert("in".into(), org_id.clone().into());
         fields.insert("out".into(), dest_id.clone().into());
-        let edges = BTreeMap::from([(org_id, origin), (dest_id, dest)]);
+
+        let edges = BTreeMap::from([
+            (org_id, Path::In(origin)),
+            (dest_id, Path::Out(destination)),
+        ]);
+
         Entity::Edge {
             id: Record::new(edge, Uuid::new_v4().to_string()),
             fields,
@@ -161,25 +188,27 @@ impl Entity {
                 .clone()
                 .try_into()
                 .unwrap();
-            let origin = edges.get(&in_rec).unwrap();
-            let dest = edges.get(&out_rec).unwrap();
-            origin.do_send(Bind(id.clone(), node.clone()));
-            dest.do_send(Bind(id, node));
+            let origin = edges.get(&in_rec).unwrap().edge();
+            let dest = edges.get(&out_rec).unwrap().edge();
+            origin.do_send(Bind(id.clone(), Path::In(node.clone())));
+            dest.do_send(Bind(id, Path::Out(node)));
         }
     }
 }
 
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
-pub struct Bind(pub Record, pub Addr<Entity>);
+pub struct Bind(pub Record, pub Path);
 
 impl Handler<Bind> for Entity {
     type Result = ();
 
     fn handle(&mut self, Bind(id, address): Bind, _ctx: &mut Self::Context) -> Self::Result {
-        if let Entity::Node { edges, .. } = self {
-            edges.insert(id, address);
+        let edges = match self {
+            Entity::Node { edges, .. } => edges,
+            Entity::Edge { edges, .. } => edges,
         };
+        edges.insert(id, address);
     }
 }
 

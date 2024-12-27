@@ -1,5 +1,3 @@
-use actix::prelude;
-
 use crate::{
     err::Error,
     ql::{part::Part, value::Value},

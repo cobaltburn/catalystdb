@@ -65,7 +65,7 @@ impl Handler<Retrieve> for Table {
                     .read()
                     .unwrap()
                     .get(&id)
-                    .map_or(Response::None, |addr| Response::Table(vec![addr.clone()])),
+                    .map_or(Response::None, |addr| Response::Record(addr.clone())),
             }
         })
     }

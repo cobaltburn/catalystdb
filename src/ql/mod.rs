@@ -1,7 +1,10 @@
 pub mod array;
+pub mod condition;
+pub mod direction;
 pub mod edge;
 pub mod expression;
 pub mod fields;
+pub mod func;
 pub mod ident;
 pub mod idiom;
 pub mod number;
@@ -11,6 +14,7 @@ pub mod part;
 pub mod record;
 pub mod serde;
 pub mod statements;
+pub mod step;
 pub mod strand;
 pub mod table;
 pub mod uuid;

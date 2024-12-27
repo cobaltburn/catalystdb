@@ -19,15 +19,18 @@ mod test {
     use std::sync::Arc;
 
     use super::*;
-    use crate::{dbs::ops::relate::Relate, ql::record::Record};
-    use actix::{Actor, Addr};
+    use crate::{
+        dbs::{entity::Path, ops::relate::Relate},
+        ql::record::Record,
+    };
+    use actix::Actor;
 
     #[derive(Message)]
-    #[rtype(result = "Option<Vec<(Record, Addr<Entity>)>>")]
+    #[rtype(result = "Option<Vec<(Record, Path)>>")]
     pub struct GetEdges;
 
     impl Handler<GetEdges> for Entity {
-        type Result = Option<Vec<(Record, Addr<Entity>)>>;
+        type Result = Option<Vec<(Record, Path)>>;
 
         fn handle(&mut self, _msg: GetEdges, _ctx: &mut Self::Context) -> Self::Result {
             let edges = self.edges().clone().into_iter().collect();

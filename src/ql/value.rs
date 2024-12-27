@@ -1,8 +1,9 @@
 use crate::{
     err::Error,
     ql::{
-        array::Array, expression::Expression, idiom::Idiom, number::Number, object::Object,
-        part::Part, record::Record, strand::Strand, uuid::Uuid,
+        array::Array, condition::Condition, edge::Edge, expression::Expression, ident::Ident,
+        idiom::Idiom, number::Number, object::Object, part::Part, record::Record, strand::Strand,
+        table::Table, uuid::Uuid,
     },
 };
 use core::fmt;
@@ -14,6 +15,15 @@ use std::{
 
 #[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Values(pub Vec<Value>);
+
+impl IntoIterator for Values {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
@@ -30,6 +40,8 @@ pub enum Value {
     Object(Object),
     Idiom(Idiom),
     Expression(Box<Expression>),
+    Edge(Box<Edge>),
+    Table(Table),
 }
 
 impl<T> From<Option<T>> for Value
@@ -92,14 +104,41 @@ impl From<BTreeMap<Arc<str>, Value>> for Value {
     }
 }
 
-impl TryInto<Record> for Value {
+impl From<Idiom> for Value {
+    fn from(idiom: Idiom) -> Self {
+        Value::Idiom(idiom)
+    }
+}
+
+impl From<Vec<Part>> for Value {
+    fn from(parts: Vec<Part>) -> Self {
+        Value::Idiom(Idiom(parts))
+    }
+}
+
+impl From<Part> for Value {
+    fn from(part: Part) -> Self {
+        Value::Idiom(Idiom(vec![part]))
+    }
+}
+
+impl From<Ident> for Value {
+    fn from(ident: Ident) -> Self {
+        Value::Idiom(Idiom(vec![Part::Field(ident)]))
+    }
+}
+
+impl TryFrom<Value> for Record {
     type Error = Error;
 
-    fn try_into(self) -> Result<Record, Self::Error> {
-        if let Value::Record(record) = self {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        if let Value::Record(record) = value {
             return Ok(*record);
-        }
-        Err(Error::FailedInto(self.to_string()))
+        };
+        Err(Error::FailedIntoValue {
+            from: value,
+            into: String::from("Value"),
+        })
     }
 }
 
@@ -203,6 +242,8 @@ impl fmt::Display for Value {
             Value::Object(v) => write!(f, "{v}"),
             Value::Idiom(v) => write!(f, "{v}"),
             Value::Expression(v) => write!(f, "{v}"),
+            Value::Table(Table(v)) => write!(f, "{v}"),
+            Value::Edge(v) => write!(f, "{v}"),
         }
     }
 }
