@@ -55,14 +55,17 @@ impl Actor for Entity {
                 .iter()
                 .for_each(|(_, path)| path.edge().do_send(Delete)),
             Entity::Edge { id, fields, edges } => {
+                let in_key: Arc<str> = "in".into();
+                let out_key: Arc<str> = "out".into();
+
                 let in_rec: Record = fields
-                    .get("in".into())
+                    .get(&in_key)
                     .expect("In field was not present")
                     .clone()
                     .try_into()
                     .unwrap();
                 let out_rec: Record = fields
-                    .get("out".into())
+                    .get(&out_key)
                     .expect("Out field was not present")
                     .clone()
                     .try_into()
@@ -176,14 +179,17 @@ impl Entity {
 
     pub fn bind_edges(&self, id: Record, node: Addr<Entity>) {
         if let Entity::Edge { fields, edges, .. } = self {
+            let in_key: Arc<str> = "in".into();
+            let out_key: Arc<str> = "out".into();
+
             let in_rec: Record = fields
-                .get("in".into())
+                .get(&in_key)
                 .expect("In field was not present")
                 .clone()
                 .try_into()
                 .unwrap();
             let out_rec: Record = fields
-                .get("out".into())
+                .get(&out_key)
                 .expect("Out field was not present")
                 .clone()
                 .try_into()

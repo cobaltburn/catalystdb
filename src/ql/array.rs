@@ -8,6 +8,7 @@ use std::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub struct Array(pub Vec<Value>);
 
 impl From<Value> for Array {
@@ -64,12 +65,16 @@ impl Array {
         self.0.get(i)
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     fn get_field(&self, Ident(id): &Ident) -> Array {
         self.0
             .iter()
             .map(|val| {
                 if let Value::Object(v) = val {
-                    v.get(id).unwrap_or(&Value::None).to_owned()
+                    v.get(id).to_owned()
                 } else {
                     Value::None
                 }

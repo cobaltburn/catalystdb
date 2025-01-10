@@ -1,6 +1,6 @@
+use super::uuid::Uuid;
 use crate::ql::value::Value;
 use std::{fmt, sync::Arc};
-use uuid::Uuid;
 
 // #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -18,10 +18,9 @@ impl Record {
     }
 
     pub fn generate<T: Into<Arc<str>>>(table: T) -> Self {
-        let id = Uuid::new_v4().to_string();
         Record {
             table: table.into(),
-            id: id.into(),
+            id: Uuid::new().into(),
         }
     }
 }

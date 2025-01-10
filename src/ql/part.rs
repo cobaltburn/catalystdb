@@ -19,10 +19,7 @@ impl Part {
     pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
         Ok(match self {
             Part::All => value.clone(),
-            Part::Field(Ident(v)) => value
-                .get(v)
-                .ok_or_else(|| Error::FieldNotFound(v.to_string()))?
-                .clone(),
+            Part::Field(Ident(v)) => value.get(v).to_owned(),
             v => return Err(Error::InvalidEvaluationPart(v.to_string())),
         })
     }

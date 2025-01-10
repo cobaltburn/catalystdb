@@ -1,13 +1,4 @@
-use crate::{
-    dbs::iterator::Iterable,
-    err::Error,
-    ql::{
-        condition::Condition,
-        fields::Fields,
-        statements::select::Select,
-        value::{Value, Values},
-    },
-};
+use crate::ql::{condition::Condition, fields::Fields, statements::select::Select, value::Values};
 
 pub enum Statement<'a> {
     Select(&'a Select),
@@ -38,17 +29,17 @@ impl Statement<'_> {
 
     pub fn filter(&self) -> Option<&Condition> {
         match self {
-            Statement::Select(stm) => stm.filter.as_ref(),
+            Statement::Select(stm) => stm.conditions.as_ref(),
         }
     }
 
-    pub fn limit(&self) -> Option<&u32> {
+    pub fn limit(&self) -> Option<&usize> {
         match self {
             Statement::Select(stm) => stm.limit.as_ref(),
         }
     }
 
-    pub fn start(&self) -> Option<&u32> {
+    pub fn start(&self) -> Option<&usize> {
         match self {
             Statement::Select(stm) => stm.start.as_ref(),
         }

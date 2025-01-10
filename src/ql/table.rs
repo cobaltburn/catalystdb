@@ -17,6 +17,14 @@ impl fmt::Display for Tables {
     }
 }
 
+impl Deref for Tables {
+    type Target = Vec<Table>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub struct Table(pub String);

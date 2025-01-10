@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 #[derive(Message)]
 #[rtype(result = "Result<Response, Error>")]
-pub struct Insert(Value, Vec<(Arc<str>, Value)>);
+pub struct Insert(pub Value, pub Vec<(Arc<str>, Value)>);
 
 impl Handler<Insert> for Table {
     type Result = Result<Response, Error>;

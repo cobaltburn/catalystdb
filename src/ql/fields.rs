@@ -1,5 +1,5 @@
 use crate::ql::value::Value;
-use std::vec;
+use std::{ops::Deref, vec};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Fields(pub Vec<Field>);
@@ -10,6 +10,14 @@ impl IntoIterator for Fields {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl Deref for Fields {
+    type Target = Vec<Field>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

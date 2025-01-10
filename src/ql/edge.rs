@@ -3,16 +3,11 @@ use core::fmt;
 use crate::ql::{direction::Direction, record::Record, table::Tables};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub struct Edge {
     pub dir: Direction,
     pub from: Record,
     pub to: Tables,
-}
-
-impl Edge {
-    // pub fn new(origin: Record, dest: Table) -> Self {
-    //     Edge { origin, dest }
-    // }
 }
 
 impl fmt::Display for Edge {

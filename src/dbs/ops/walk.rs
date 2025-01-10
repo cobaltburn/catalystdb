@@ -13,14 +13,14 @@ use std::sync::Arc;
 #[derive(Message, Debug)]
 #[rtype(result = "Result<Response, Error>")]
 pub struct Walk {
-    pub path: Arc<Vec<Step>>,
+    pub path: Arc<Vec<Path>>,
     pub idx: usize,
     pub origin: Record,
     pub field: Arc<Field>,
 }
 
 impl Walk {
-    pub fn new(path: Vec<Step>, origin: Record, field: Arc<Field>) -> Self {
+    pub fn new(path: Vec<Path>, origin: Record, field: Arc<Field>) -> Self {
         let path = Arc::new(path);
         let idx = 0;
         Walk {
@@ -33,15 +33,15 @@ impl Walk {
 }
 
 #[derive(Debug, Clone)]
-pub struct Step {
+pub struct Path {
     pub dir: Direction,
     pub table: Table,
     pub filter: Option<Value>,
 }
 
-impl Step {
-    pub fn new(dir: Direction, table: Table, filter: Option<Value>) -> Step {
-        Step { dir, table, filter }
+impl Path {
+    pub fn new(dir: Direction, table: Table, filter: Option<Value>) -> Path {
+        Path { dir, table, filter }
     }
 }
 
@@ -70,7 +70,7 @@ impl Handler<Walk> for Entity {
                 return Ok(Response::Value(fields));
             }
 
-            let Step { dir, table, filter } = path.get(idx).unwrap();
+            let Path { dir, table, filter } = path.get(idx).unwrap();
 
             let mut values = Vec::new();
 
@@ -159,10 +159,10 @@ mod test {
             })
             .await;
         let path = vec![
-            Step::new(Direction::In, String::from("e_1").into(), None),
-            Step::new(Direction::In, String::from("b").into(), None),
-            Step::new(Direction::In, String::from("e_2").into(), None),
-            Step::new(Direction::In, String::from("c").into(), None),
+            Path::new(Direction::In, String::from("e_1").into(), None),
+            Path::new(Direction::In, String::from("b").into(), None),
+            Path::new(Direction::In, String::from("e_2").into(), None),
+            Path::new(Direction::In, String::from("c").into(), None),
         ];
 
         let response = a
@@ -175,7 +175,7 @@ mod test {
             panic!()
         };
         let value = vec.first().unwrap();
-        let left = value.get(&"id".into()).unwrap();
+        let left = value.get(&"id".into());
         let right = Value::Record(Box::new(c_id.clone()));
         assert_eq!(left, right);
     }
@@ -207,8 +207,8 @@ mod test {
             .await;
 
         let path = vec![
-            Step::new(Direction::In, String::from("e_1").into(), None),
-            Step::new(
+            Path::new(Direction::In, String::from("e_1").into(), None),
+            Path::new(
                 Direction::In,
                 String::from("b").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
@@ -217,8 +217,8 @@ mod test {
                     right: 2.into(),
                 }))),
             ),
-            Step::new(Direction::In, String::from("e_2").into(), None),
-            Step::new(
+            Path::new(Direction::In, String::from("e_2").into(), None),
+            Path::new(
                 Direction::In,
                 String::from("c").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
@@ -239,7 +239,7 @@ mod test {
             panic!()
         };
         let value = vec.first().unwrap();
-        let left = value.get(&"id".into()).unwrap();
+        let left = value.get(&"id".into());
         let right = Value::Record(Box::new(c_id.clone()));
         assert_eq!(left, right);
     }
@@ -287,8 +287,8 @@ mod test {
             .await;
 
         let path = vec![
-            Step::new(Direction::In, String::from("e_1").into(), None),
-            Step::new(
+            Path::new(Direction::In, String::from("e_1").into(), None),
+            Path::new(
                 Direction::In,
                 String::from("b").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
@@ -297,8 +297,8 @@ mod test {
                     right: 2.into(),
                 }))),
             ),
-            Step::new(Direction::In, String::from("e_2").into(), None),
-            Step::new(
+            Path::new(Direction::In, String::from("e_2").into(), None),
+            Path::new(
                 Direction::In,
                 String::from("c").into(),
                 Some(Value::Expression(Box::new(Expression::Binary {
@@ -319,7 +319,7 @@ mod test {
             panic!()
         };
         let value = vec.first().unwrap();
-        let left = value.get(&"id".into()).unwrap();
+        let left = value.get(&"id".into());
         let right = Value::Record(Box::new(c_id.clone()));
         assert_eq!(left, right);
     }

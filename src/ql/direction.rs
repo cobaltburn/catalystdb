@@ -1,6 +1,7 @@
 use core::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub enum Direction {
     In,
     Out,

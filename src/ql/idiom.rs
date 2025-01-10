@@ -1,12 +1,29 @@
 use crate::{
     err::Error,
-    ql::{part::Part, value::Value},
+    ql::{edge::Edge, part::Part, step::Step, value::Value},
 };
-use std::fmt;
+use std::{fmt, ops::Deref, slice::Iter};
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub struct Idioms(pub Vec<Idiom>);
+
+impl Deref for Idioms {
+    type Target = Vec<Idiom>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl IntoIterator for Idioms {
+    type Item = Idiom;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
@@ -14,15 +31,41 @@ pub struct Idiom(pub Vec<Part>);
 
 impl Idiom {
     pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
-        let mut parts = self.0.iter();
-        let part = parts.next().expect("An empty vec was passed evaluated");
+        let mut parts = self.iter();
+        let part = parts.next().expect("An empty idiom was passed evaluated");
         let mut val = part.evaluate(value)?;
 
-        for part in parts {
-            val = val.retrieve(part)?;
+        while let Some(part) = parts.next() {
+            val = match part {
+                Part::Value(_value) => todo!(),
+                Part::Step(_) => Self::parse_walk(part, &mut parts)?,
+                Part::Edge(_) => todo!(),
+                _ => val.retrieve(part)?,
+            }
         }
 
         Ok(val)
+    }
+
+    fn parse_walk(start: &Part, parts: &mut Iter<Part>) -> Result<Value, Error> {
+        match start {
+            Part::Step(Step {
+                dir,
+                to,
+                filter,
+                alias,
+            }) => todo!(),
+            Part::Edge(Edge { dir, from, to }) => todo!(),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Deref for Idiom {
+    type Target = Vec<Part>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

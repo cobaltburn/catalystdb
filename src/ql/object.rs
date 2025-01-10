@@ -14,8 +14,8 @@ impl From<BTreeMap<Arc<str>, Value>> for Object {
 }
 
 impl Object {
-    pub fn get(&self, field: &Arc<str>) -> Option<&Value> {
-        self.0.get(field)
+    pub fn get(&self, field: &Arc<str>) -> &Value {
+        self.0.get(field).unwrap_or(&Value::None)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -29,10 +29,7 @@ impl Object {
     pub fn retrieve(&self, part: &Part) -> Result<Value, Error> {
         Ok(match part {
             Part::All => Value::Object(self.fields().into()),
-            Part::Field(Ident(id)) => self
-                .get(id)
-                .ok_or_else(|| Error::FieldNotFound(id.to_string()))?
-                .to_owned(),
+            Part::Field(Ident(id)) => self.get(id).to_owned(),
             _ => return Err(Error::FieldNotFound(part.to_string())),
         })
     }

@@ -1,11 +1,12 @@
-use crate::ql::{direction::Direction, table::Tables, value::Value};
+use crate::ql::{condition::Condition, direction::Direction, table::Tables};
 use core::fmt;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Step {
     pub dir: Direction,
     pub to: Tables,
-    pub filter: Option<Value>,
+    pub filter: Option<Condition>,
+    pub alias: Option<String>,
 }
 
 impl fmt::Display for Step {

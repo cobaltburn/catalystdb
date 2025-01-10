@@ -9,7 +9,7 @@ use crate::{
 use core::fmt;
 use std::{
     collections::BTreeMap,
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Deref, Div, Mul, Sub},
     sync::Arc,
 };
 
@@ -22,6 +22,14 @@ impl IntoIterator for Values {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl Deref for Values {
+    type Target = Vec<Value>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -44,6 +52,60 @@ pub enum Value {
     Table(Table),
 }
 
+impl Value {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Value::None)
+    }
+
+    pub fn is_null(&self) -> bool {
+        matches!(self, Value::Null)
+    }
+
+    pub fn is_record(&self) -> bool {
+        matches!(self, Value::Record(_))
+    }
+
+    pub fn is_uuid(&self) -> bool {
+        matches!(self, Value::Uuid(_))
+    }
+
+    pub fn is_number(&self) -> bool {
+        matches!(self, Value::Number(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::String(_))
+    }
+
+    pub fn is_bool(&self) -> bool {
+        matches!(self, Value::Bool(_))
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(self, Value::Array(_))
+    }
+
+    pub fn is_object(&self) -> bool {
+        matches!(self, Value::Object(_))
+    }
+
+    pub fn is_idiom(&self) -> bool {
+        matches!(self, Value::Idiom(_))
+    }
+
+    pub fn is_expression(&self) -> bool {
+        matches!(self, Value::Expression(_))
+    }
+
+    pub fn is_edge(&self) -> bool {
+        matches!(self, Value::Edge(_))
+    }
+
+    pub fn is_table(&self) -> bool {
+        matches!(self, Value::Table(_))
+    }
+}
+
 impl<T> From<Option<T>> for Value
 where
     Value: From<T>,
@@ -59,6 +121,20 @@ where
 impl From<Vec<Value>> for Value {
     fn from(value: Vec<Value>) -> Self {
         Value::Array(Array::from(value))
+    }
+}
+
+impl TryFrom<Value> for Vec<Value> {
+    type Error = Error;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        if let Value::Array(array) = value {
+            return Ok(array.0);
+        }
+        Err(Error::FailedIntoValue {
+            from: value,
+            into: "Vec<Value>".to_string(),
+        })
     }
 }
 
@@ -128,6 +204,24 @@ impl From<Ident> for Value {
     }
 }
 
+impl From<Array> for Value {
+    fn from(array: Array) -> Self {
+        Value::Array(array)
+    }
+}
+
+impl From<Table> for Value {
+    fn from(table: Table) -> Self {
+        Value::Table(table)
+    }
+}
+
+impl From<Uuid> for Value {
+    fn from(uuid: Uuid) -> Self {
+        Value::Uuid(uuid)
+    }
+}
+
 impl TryFrom<Value> for Record {
     type Error = Error;
 
@@ -156,13 +250,6 @@ impl Value {
         }
     }
 
-    pub fn get(&self, key: &Arc<str>) -> Option<Value> {
-        match self {
-            Value::Object(object) => Some(object.get(key)?.clone()),
-            _ => None,
-        }
-    }
-
     pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
         match self {
             // Value::Record(_) => todo!(),
@@ -181,6 +268,13 @@ impl Value {
             Value::Object(v) => v.retrieve(part)?,
             _ => Value::None,
         })
+    }
+
+    pub fn filter(self, cond: &Condition) -> Result<Value, Error> {
+        if self.evaluate(&cond.0)?.is_truthy() {
+            return Ok(self);
+        }
+        Ok(Value::None)
     }
 }
 

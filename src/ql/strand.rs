@@ -7,6 +7,14 @@ use std::{
 #[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Strand(pub Arc<str>);
 
+impl Deref for Strand {
+    type Target = Arc<str>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl From<String> for Strand {
     fn from(s: String) -> Self {
         Strand(s.into())

@@ -5,13 +5,13 @@ use crate::{
         graph::{self, Graph},
         ops::{
             get::Get,
-            walk::{Step, Walk},
+            walk::{Path, Walk},
         },
         table,
     },
     err::Error,
     ql::{
-        edge::Edge, fields::Field, ident::Ident, object::Object, record::Record,
+        edge::Edge, fields::Field, ident::Ident, idiom::Idioms, object::Object, record::Record,
         statements::statement::Statement, table::Table, value::Value,
     },
     resp::Response,
@@ -26,6 +26,7 @@ pub enum Iterable {
     Edge(Edge),
     Record(Addr<Entity>),
     Table(Vec<Addr<Entity>>),
+    Idiom(Idioms),
 }
 
 impl Iterable {
@@ -35,7 +36,16 @@ impl Iterable {
             Iterable::Edge(edge) => Self::process_edge(edge, graph).await,
             Iterable::Record(record) => Self::process_record(record, stm).await,
             Iterable::Table(table) => Self::process_table(table, stm).await,
+            Iterable::Idiom(idioms) => Self::process_idioms(idioms, graph, stm).await,
         }
+    }
+
+    async fn process_idioms(
+        Idioms(idioms): Idioms,
+        graph: &Addr<Graph>,
+        stm: &Statement<'_>,
+    ) -> Result<Value, Error> {
+        todo!()
     }
 
     async fn process_edge(
@@ -61,7 +71,7 @@ impl Iterable {
 
         for table in tables.0 {
             let walk = Walk::new(
-                vec![Step::new(dir.clone(), table, None)],
+                vec![Path::new(dir.clone(), table, None)],
                 from.clone(),
                 Arc::new(Field::Single {
                     expr: Ident("id".into()).into(),
@@ -95,7 +105,7 @@ impl Iterable {
     async fn process_record(record: Addr<Entity>, stm: &Statement<'_>) -> Result<Value, Error> {
         let response = match stm {
             Statement::Select(stm) => record
-                .send(Get::new(stm.fields.clone(), stm.filter.clone()))
+                .send(Get::new(stm.fields.clone(), stm.conditions.clone()))
                 .await
                 .unwrap()?,
         };
@@ -112,7 +122,7 @@ impl Iterable {
             Statement::Select(stm) => {
                 for addr in table {
                     let fields = stm.fields.clone();
-                    let filter = stm.filter.clone();
+                    let filter = stm.conditions.clone();
                     let response = addr.send(Get::new(fields, filter)).await.unwrap()?;
                     let val = match response {
                         Response::Value(value) => value,
@@ -131,8 +141,8 @@ impl Iterable {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Iterator {
     pub count: u64,
-    pub limit: Option<u32>,
-    pub start: Option<u32>,
+    pub limit: Option<usize>,
+    pub start: Option<usize>,
     pub entries: Vec<Iterable>,
 }
 
@@ -142,7 +152,7 @@ impl Iterator {
     }
 
     pub fn ingest(&mut self, value: Iterable) {
-        &self.entries.push(value);
+        self.entries.push(value);
     }
 
     pub async fn ingest_record(&mut self, id: Record, graph: &Addr<Graph>) -> Result<(), Error> {
@@ -151,7 +161,7 @@ impl Iterator {
 
         let retrieve = dbs::table::Retrieve::Record(id);
         let node: Addr<Entity> = table.send(retrieve).await.unwrap().try_into()?;
-        &self.ingest(Iterable::Record(node));
+        self.ingest(Iterable::Record(node));
 
         Ok(())
     }
@@ -162,7 +172,7 @@ impl Iterator {
 
         let retrieve = dbs::table::Retrieve::Iterator;
         let table: Vec<Addr<Entity>> = table.send(retrieve).await.unwrap().try_into()?;
-        &self.ingest(Iterable::Table(table));
+        self.ingest(Iterable::Table(table));
 
         Ok(())
     }
@@ -172,25 +182,46 @@ impl Iterator {
         Ok(())
     }
 
-    /* pub async fn iterate(
-        &mut self,
-        graph: &Addr<Graph>,
-        stm: &Statement<'_>,
-    ) -> Result<Value, Error> {
-        todo!()
-    } */
+    pub fn set_limit(&mut self, stm: &Statement<'_>) -> Result<(), Error> {
+        self.limit = stm.limit().map(Clone::clone);
+
+        Ok(())
+    }
+
+    pub fn set_start(&mut self, stm: &Statement<'_>) -> Result<(), Error> {
+        self.start = stm.start().map(Clone::clone);
+
+        Ok(())
+    }
 
     pub async fn process(
         &mut self,
         graph: &Addr<Graph>,
         stm: &Statement<'_>,
     ) -> Result<Value, Error> {
+        self.set_start(stm)?;
+        self.set_limit(stm)?;
+
         let mut values = vec![];
-        for iter in mem::take(&mut self.entries) {
-            let val = iter.process(graph, stm).await?;
+        for val in mem::take(&mut self.entries) {
+            let val = val.process(graph, stm).await?;
             values.push(val);
         }
-        let values = values;
+
+        let values: Value = values.into();
+        let mut values: Vec<Value> = values.flatten().try_into()?;
+
+        if let Some(i) = self.start {
+            values = values.into_iter().skip(i).collect();
+        }
+
+        if let Some(i) = self.limit {
+            values = values.into_iter().take(i).collect();
+        }
+
         Ok(values.into())
     }
 }
+
+#[cfg(test)]
+mod test {}

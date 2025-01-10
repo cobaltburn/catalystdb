@@ -14,6 +14,12 @@ pub enum Number {
     Float(f64),
 }
 
+impl Default for Number {
+    fn default() -> Self {
+        Number::Int(0)
+    }
+}
+
 impl From<f32> for Number {
     fn from(value: f32) -> Self {
         Number::Float(value as f64)
