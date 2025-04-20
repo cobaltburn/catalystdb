@@ -1,14 +1,14 @@
 use crate::{
     dbs::ops::{delete::Delete, remove::Remove},
     err::Error,
-    ql::{record::Record, value::Value},
+    ql::{direction::Direction, record::Record, value::Value},
 };
 use actix::{Actor, Addr, AsyncContext, Context, Handler, Message};
 use std::{collections::BTreeMap, sync::Arc};
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
 #[non_exhaustive]
+#[derive(Debug, Clone)]
 pub enum Entity {
     Node {
         id: Record,
@@ -22,8 +22,8 @@ pub enum Entity {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Path {
     In(Addr<Entity>),
     Out(Addr<Entity>),
@@ -43,6 +43,17 @@ impl Path {
 
     pub fn is_out(&self) -> bool {
         matches!(self, Path::Out(_))
+    }
+
+    pub fn valid_path(&self, dir: &Direction, entity: &Entity) -> Option<&Addr<Entity>> {
+        Some(match dir {
+            Direction::In if entity.is_edge() && self.is_out() => self.edge(),
+            Direction::Out if entity.is_edge() && self.is_in() => self.edge(),
+            Direction::In if entity.is_node() && self.is_in() => self.edge(),
+            Direction::Out if entity.is_node() && self.is_out() => self.edge(),
+            Direction::Both => self.edge(),
+            _ => return None,
+        })
     }
 }
 
@@ -120,10 +131,9 @@ impl Entity {
 
     pub fn evaluate(&self, val: &Value) -> Result<Value, Error> {
         Ok(match val {
-            v @ Value::Record(_) => v.to_owned(),
             Value::Idiom(v) => v.evaluate(&self.fields().clone().into())?,
             Value::Expression(v) => v.evaluate(&self.fields().clone().into())?,
-            v => v.to_owned(),
+            _ => val.to_owned(),
         })
     }
 }

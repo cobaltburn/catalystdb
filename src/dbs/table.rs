@@ -39,36 +39,5 @@ impl Table {
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "Response")]
-pub enum Retrieve {
-    Iterator,
-    Record(Record),
-}
-
-impl Handler<Retrieve> for Table {
-    type Result = ResponseFuture<Response>;
-
-    fn handle(&mut self, msg: Retrieve, _ctx: &mut Self::Context) -> Self::Result {
-        let nodes = self.nodes.clone();
-        Box::pin(async move {
-            match msg {
-                Retrieve::Iterator => Response::Table(
-                    nodes
-                        .read()
-                        .unwrap()
-                        .par_iter()
-                        .map(|(_, addr)| addr.clone())
-                        .collect(),
-                ),
-                Retrieve::Record(Record { table: _, id }) => nodes
-                    .read()
-                    .unwrap()
-                    .get(&id)
-                    .map_or(Response::None, |addr| Response::Record(addr.clone())),
-            }
-        })
-    }
-}
-
+#[cfg(test)]
 mod test {}

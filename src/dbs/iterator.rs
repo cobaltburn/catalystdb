@@ -3,88 +3,80 @@ use crate::{
         self,
         entity::Entity,
         graph::{self, Graph},
-        ops::{
-            get::Get,
-            walk::{Path, Walk},
-        },
+        ops::{get::Get, walk::Walk},
         table,
     },
     err::Error,
     ql::{
-        edge::Edge, fields::Field, ident::Ident, idiom::Idioms, object::Object, record::Record,
-        statements::statement::Statement, table::Table, value::Value,
+        edge::Edge, fields::Field, ident::Ident, idiom::Idioms, object::Object, path::Path,
+        record::Record, statements::statement::Statement, table::Table, value::Value,
     },
     resp::Response,
 };
 use actix::Addr;
+use dbs::ops::retrieve::Retrieve;
+use reblessive::tree::Stk;
 use std::{collections::BTreeMap, mem, sync::Arc};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Iterable {
     Value(Value),
     Edge(Edge),
     Record(Addr<Entity>),
     Table(Vec<Addr<Entity>>),
-    Idiom(Idioms),
 }
 
 impl Iterable {
-    pub async fn process(self, graph: &Addr<Graph>, stm: &Statement<'_>) -> Result<Value, Error> {
-        match self {
-            Iterable::Value(value) => Self::process_value(value, stm),
-            Iterable::Edge(edge) => Self::process_edge(edge, graph).await,
-            Iterable::Record(record) => Self::process_record(record, stm).await,
-            Iterable::Table(table) => Self::process_table(table, stm).await,
-            Iterable::Idiom(idioms) => Self::process_idioms(idioms, graph, stm).await,
-        }
-    }
-
-    async fn process_idioms(
-        Idioms(idioms): Idioms,
+    pub async fn process(
+        self,
+        stk: &mut Stk,
         graph: &Addr<Graph>,
         stm: &Statement<'_>,
     ) -> Result<Value, Error> {
-        todo!()
+        match self {
+            Iterable::Value(value) => Self::process_value(value, stk, graph, stm).await,
+            Iterable::Edge(edge) => Self::process_edge(edge, graph).await,
+            Iterable::Record(record) => Self::process_record(record, stm).await,
+            Iterable::Table(table) => Self::process_table(table, stm).await,
+        }
     }
 
     async fn process_edge(
-        Edge {
-            dir,
-            from,
-            to: tables,
-        }: Edge,
+        Edge { dir, from, to }: Edge,
         graph: &Addr<Graph>,
     ) -> Result<Value, Error> {
-        let table = graph
-            .send(graph::Retrieve(Value::Record(Box::new(from.clone()))))
-            .await
-            .unwrap();
+        let response = graph.send(Retrieve::Record(from.clone())).await.unwrap();
 
-        let Some(table) = table else {
-            return Ok(Value::None);
+        let node = match response {
+            Response::Record(addr) => addr,
+            Response::None => return Ok(Value::None),
+            _ => unreachable!(),
         };
 
-        let retrieve = table::Retrieve::Record(from.clone());
-        let node: Addr<Entity> = table.send(retrieve).await.unwrap().try_into()?;
         let mut responses: Vec<Value> = Vec::new();
 
-        for table in tables.0 {
-            let walk = Walk::new(
-                vec![Path::new(dir.clone(), table, None)],
-                from.clone(),
-                Arc::new(Field::Single {
-                    expr: Ident("id".into()).into(),
-                    alias: None,
-                }),
-            );
-            let response = node.send(walk).await.unwrap()?;
-            responses.push(response.try_into()?);
-        }
+        let walk = Walk::new(
+            vec![Path::new(dir.clone(), to, None)],
+            from.clone(),
+            Field::Single {
+                expr: Ident("id".into()).into(),
+                alias: None,
+            },
+            graph.clone(),
+        );
+        let response = node.send(walk).await.unwrap()?;
+        responses.push(response.try_into()?);
+
         Ok(responses.into())
     }
 
-    fn process_value(value: Value, stm: &Statement<'_>) -> Result<Value, Error> {
+    async fn process_value(
+        value: Value,
+        stk: &mut Stk,
+        graph: &Addr<Graph>,
+        stm: &Statement<'_>,
+    ) -> Result<Value, Error> {
         let fields = stm.fields().ok_or(Error::InvalidStatement())?;
         let mut object: BTreeMap<Arc<str>, Value> = BTreeMap::new();
         for field in &fields.0 {
@@ -93,9 +85,12 @@ impl Iterable {
                     object.insert(value.to_string().into(), value.clone());
                 }
                 Field::Single { expr, alias } => {
-                    let key = alias.clone().map_or(expr.to_string().into(), Into::into);
-                    let value = value.evaluate(&expr).unwrap_or(Value::None);
-                    object.insert(key, value);
+                    // TODO need to fix whats going on here
+                    // let key = alias.clone().map_or(expr.to_string().into(), Into::into);
+                    // let value = stk
+                    //     .run(|stk| value.evaluate(stk, &expr, graph))
+                    //     .unwrap_or(Value::None);
+                    // object.insert(key, value);
                 }
             }
         }
@@ -156,22 +151,32 @@ impl Iterator {
     }
 
     pub async fn ingest_record(&mut self, id: Record, graph: &Addr<Graph>) -> Result<(), Error> {
-        let retrieve = graph::Retrieve(Value::Record(Box::new(id.clone())));
-        let table = graph.send(retrieve).await.unwrap().ok_or(Error::None)?;
+        let response = graph.send(Retrieve::Record(id.clone())).await.unwrap();
 
-        let retrieve = dbs::table::Retrieve::Record(id);
-        let node: Addr<Entity> = table.send(retrieve).await.unwrap().try_into()?;
+        let node = match response {
+            Response::Record(addr) => addr,
+            Response::None => return Ok(()),
+            _ => unreachable!(),
+        };
+
         self.ingest(Iterable::Record(node));
 
         Ok(())
     }
 
-    pub async fn ingest_table(&mut self, table: Table, graph: &Addr<Graph>) -> Result<(), Error> {
-        let retrieve = graph::Retrieve(Value::Table(table));
-        let table = graph.send(retrieve).await.unwrap().ok_or(Error::None)?;
+    pub async fn ingest_table(
+        &mut self,
+        Table(table): Table,
+        graph: &Addr<Graph>,
+    ) -> Result<(), Error> {
+        let retrieve = Retrieve::Table(table);
+        let response = graph.send(retrieve).await.unwrap();
+        let table = match response {
+            Response::Table(table) => table,
+            Response::None => return Ok(()),
+            _ => unreachable!(),
+        };
 
-        let retrieve = dbs::table::Retrieve::Iterator;
-        let table: Vec<Addr<Entity>> = table.send(retrieve).await.unwrap().try_into()?;
         self.ingest(Iterable::Table(table));
 
         Ok(())
@@ -196,6 +201,7 @@ impl Iterator {
 
     pub async fn process(
         &mut self,
+        stk: &mut Stk,
         graph: &Addr<Graph>,
         stm: &Statement<'_>,
     ) -> Result<Value, Error> {
@@ -204,7 +210,7 @@ impl Iterator {
 
         let mut values = vec![];
         for val in mem::take(&mut self.entries) {
-            let val = val.process(graph, stm).await?;
+            let val = val.process(stk, graph, stm).await?;
             values.push(val);
         }
 

@@ -55,7 +55,7 @@ impl TryFrom<Response> for Value {
         if let Response::Value(response) = response {
             return Ok(response);
         }
-        Err(Error::FailedIntoResponse {
+        Err(Error::FailedFromResponse {
             from: response,
             into: String::from("Value"),
         })
@@ -69,7 +69,7 @@ impl TryFrom<Response> for Vec<Addr<Entity>> {
         if let Response::Table(response) = response {
             return Ok(response);
         }
-        Err(Error::FailedIntoResponse {
+        Err(Error::FailedFromResponse {
             from: response,
             into: String::from("Vec<Addr<Entity>>"),
         })
@@ -83,7 +83,7 @@ impl TryFrom<Response> for Addr<Entity> {
         if let Response::Record(response) = response {
             return Ok(response);
         }
-        Err(Error::FailedIntoResponse {
+        Err(Error::FailedFromResponse {
             from: response,
             into: String::from("Addr<Entity>"),
         })

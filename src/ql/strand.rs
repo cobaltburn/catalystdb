@@ -28,6 +28,10 @@ impl From<&str> for Strand {
 }
 
 impl Strand {
+    pub fn new<T: Into<Arc<str>>>(val: T) -> Strand {
+        Strand(val.into())
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

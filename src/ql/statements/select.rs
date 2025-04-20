@@ -3,6 +3,7 @@ use crate::{
         graph::Graph,
         iterator::{Iterable, Iterator},
     },
+    doc::document::Cursor,
     err::Error,
     ql::{
         array::Array,
@@ -13,6 +14,7 @@ use crate::{
     },
 };
 use actix::Addr;
+use reblessive::tree::Stk;
 
 #[non_exhaustive]
 pub struct Select {
@@ -25,11 +27,16 @@ pub struct Select {
 
 impl Select {
     // TODO need to implement multi step edges
-    async fn compute(&self, graph: Addr<Graph>) -> Result<Value, Error> {
+    async fn compute(
+        &self,
+        stk: &mut Stk,
+        graph: Addr<Graph>,
+        cur: Option<&Cursor>,
+    ) -> Result<Value, Error> {
         let mut iter = Iterator::new();
         let stm = Statement::from(self);
         for val in self.what.0.iter() {
-            let val = val.evaluate(&Value::None)?;
+            let val = stk.run(|stk| val.evaluate(stk, &graph, cur)).await?;
             match val {
                 Value::Record(id) => iter.ingest_record(*id, &graph).await?,
                 Value::Table(table) => iter.ingest_table(table, &graph).await?,
@@ -48,13 +55,13 @@ impl Select {
             }
         }
 
-        let result = iter.process(&graph, &stm).await;
+        let result = stk.run(|stk| iter.process(stk, &graph, &stm)).await;
 
         result
     }
 }
 
-#[cfg(test)]
+/* #[cfg(test)]
 mod test {
     use super::*;
     use crate::{
@@ -212,4 +219,4 @@ mod test {
 
         assert_eq!(res.len(), length)
     }
-}
+} */

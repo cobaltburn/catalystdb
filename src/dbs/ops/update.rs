@@ -6,6 +6,13 @@ use std::sync::Arc;
 #[rtype(result = "Result<Response, Error>")]
 pub struct Update(pub Vec<(Arc<str>, Value)>);
 
+impl Update {
+    pub fn new<T: Into<Arc<str>>>(fields: Vec<(T, Value)>) -> Update {
+        let fields = fields.into_iter().map(|(e, v)| (e.into(), v)).collect();
+        Update(fields)
+    }
+}
+
 impl Handler<Update> for Entity {
     type Result = Result<Response, Error>;
 
@@ -43,9 +50,9 @@ mod test {
     async fn update_test() {
         let fields: Vec<(Arc<str>, Value)> = Vec::new();
         let a = Entity::new_node(Record::new("a", "1"), fields).start();
-        a.send(Update(vec![
-            ("car".into(), "new".into()),
-            ("speed".into(), 2.into()),
+        a.send(Update::new(vec![
+            ("car", "new".into()),
+            ("speed", 2.into()),
         ]))
         .await
         .unwrap()

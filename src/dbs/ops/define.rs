@@ -6,7 +6,7 @@ use crate::{
 use actix::{Actor, Handler, Message};
 use core::panic;
 
-#[derive(Message)]
+#[derive(Message, Debug)]
 #[rtype(result = "Result<Response, Error>")]
 #[non_exhaustive]
 pub enum Define {

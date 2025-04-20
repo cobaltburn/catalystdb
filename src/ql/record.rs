@@ -1,12 +1,33 @@
 use super::uuid::Uuid;
-use crate::ql::value::Value;
+use crate::{
+    dbs::graph::Graph,
+    doc::document::Cursor,
+    err::Error,
+    ql::{id::Id, value::Value},
+};
+use actix::Addr;
+use reblessive::tree::Stk;
 use std::{fmt, sync::Arc};
 
 // #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Record {
     pub table: Arc<str>,
-    pub id: Value,
+    pub id: Id,
+}
+
+impl Record {
+    pub async fn evaluate(
+        &self,
+        stk: &mut Stk,
+        graph: &Addr<Graph>,
+        cur: Option<&Cursor>,
+    ) -> Result<Value, Error> {
+        Ok(Value::Record(Box::new(Record {
+            table: self.table.clone(),
+            id: stk.run(|stk| self.id.evaluate(stk, graph, cur)).await?,
+        })))
+    }
 }
 
 impl Record {

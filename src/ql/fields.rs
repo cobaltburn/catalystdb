@@ -1,8 +1,23 @@
-use crate::ql::value::Value;
+use crate::{
+    err::Error,
+    ql::{idiom::Idiom, part::Part, value::Value},
+};
 use std::{ops::Deref, vec};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Fields(pub Vec<Field>);
+
+impl From<Field> for Fields {
+    fn from(field: Field) -> Self {
+        Fields(vec![field])
+    }
+}
+
+impl From<Vec<Field>> for Fields {
+    fn from(fields: Vec<Field>) -> Self {
+        Fields(fields)
+    }
+}
 
 impl IntoIterator for Fields {
     type Item = Field;
@@ -27,8 +42,42 @@ pub enum Field {
     Single { expr: Value, alias: Option<String> },
 }
 
-impl From<Vec<Field>> for Fields {
-    fn from(fields: Vec<Field>) -> Self {
-        Fields(fields)
+impl Field {
+    pub fn new(expr: Value) -> Field {
+        Field::Single { expr, alias: None }
+    }
+
+    pub fn new_alias(expr: Value, alias: String) -> Field {
+        Field::Single {
+            expr,
+            alias: Some(alias),
+        }
+    }
+}
+
+impl From<Value> for Field {
+    fn from(expr: Value) -> Self {
+        Field::Single { expr, alias: None }
+    }
+}
+
+impl TryFrom<Part> for Field {
+    type Error = Error;
+
+    fn try_from(part: Part) -> Result<Self, Self::Error> {
+        Ok(match part {
+            Part::All => Field::WildCard,
+            Part::Value(v) => v.into(),
+            Part::Field(_) => Field::Single {
+                expr: Value::Idiom(Idiom(vec![part])),
+                alias: None,
+            },
+            _ => {
+                return Err(Error::FailedFromPart {
+                    from: part,
+                    into: "Field".to_string(),
+                })
+            }
+        })
     }
 }

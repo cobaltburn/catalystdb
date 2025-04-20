@@ -378,6 +378,7 @@ dependencies = [
  "actix-web",
  "async-trait",
  "rayon",
+ "reblessive",
  "serde",
  "serde-content",
  "serde_json",
@@ -1086,6 +1087,12 @@ dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
 ]
+
+[[package]]
+name = "reblessive"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffead9d0a0b45f3e0bc063a244b1779fd53a09d2c2f7282c186a016b1f10a778"
 
 [[package]]
 name = "redox_syscall"

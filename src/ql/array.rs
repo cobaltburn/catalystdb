@@ -1,4 +1,9 @@
+use actix::Addr;
+use reblessive::tree::{self, Stk};
+
 use crate::{
+    dbs::graph::Graph,
+    doc::document::Cursor,
     err::Error,
     ql::{ident::Ident, number::Number, part::Part, value::Value},
 };
@@ -7,15 +12,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Default)]
 pub struct Array(pub Vec<Value>);
-
-impl From<Value> for Array {
-    fn from(value: Value) -> Self {
-        Array(vec![value])
-    }
-}
 
 impl From<Vec<Value>> for Array {
     fn from(value: Vec<Value>) -> Self {
@@ -65,10 +64,6 @@ impl Array {
         self.0.get(i)
     }
 
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
     fn get_field(&self, Ident(id): &Ident) -> Array {
         self.0
             .iter()
@@ -81,6 +76,20 @@ impl Array {
             })
             .collect::<Vec<_>>()
             .into()
+    }
+}
+
+impl Array {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_capacity(len: usize) -> Self {
+        Array(Vec::with_capacity(len))
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -96,5 +105,21 @@ impl Display for Array {
         }
         array_str.pop();
         write!(f, "[{array_str}]")
+    }
+}
+
+impl Array {
+    pub async fn evaluate(
+        &self,
+        stk: &mut Stk,
+        graph: &Addr<Graph>,
+        cur: Option<&Cursor>,
+    ) -> Result<Value, Error> {
+        let mut array = Self::with_capacity(self.len());
+        for val in self.iter() {
+            let val = stk.run(|stk| val.evaluate(stk, graph, cur)).await?;
+            array.push(val);
+        }
+        Ok(Value::Array(array))
     }
 }

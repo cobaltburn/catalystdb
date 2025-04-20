@@ -1,11 +1,11 @@
 use crate::{
-    ql::{operator::Operator, value::Value},
+    ql::{operator::Operator, part::Part, path::Path, value::Value},
     resp::Response,
 };
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(PartialEq, Eq, Error, Debug, Default)]
+#[derive(PartialEq, Eq, Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
     #[error("Can not create {table}:{id}")]
@@ -48,17 +48,25 @@ pub enum Error {
     OutOfBoundsIndex(usize),
 
     #[error("Failed to convert value {from} into a {into}")]
-    FailedIntoValue { from: Value, into: String },
+    FailedFromValue { from: Value, into: String },
 
     #[error("Failed to convert response {from} into a {into}")]
-    FailedIntoResponse { from: Response, into: String },
+    FailedFromResponse { from: Response, into: String },
+
+    #[error("Failed to convert part {from} into a {into}")]
+    FailedFromPart { from: Part, into: String },
+
+    #[error("")]
+    IncorrectType(String),
 
     #[error("")]
     InvalidStatement(),
 
-    #[error("for returning a None value within the error")]
-    #[default]
-    None,
+    #[error("traversed beyond edge limit no idea how you did this index: {0} path: {1:#?}")]
+    EdgeIndexExceeded(usize, Vec<Path>),
+
+    #[error("Table not found: {0}")]
+    InvalidTable(String),
 }
 
 impl Serialize for Error {

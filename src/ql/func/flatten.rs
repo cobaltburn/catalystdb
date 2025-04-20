@@ -7,7 +7,7 @@ impl Value {
                 .into_iter()
                 .flat_map(|val| match val {
                     Value::Array(array) => array,
-                    _ => Array::from(val),
+                    _ => Array(vec![val]),
                 })
                 .collect::<Vec<_>>()
                 .into(),

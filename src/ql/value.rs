@@ -1,12 +1,16 @@
 use crate::{
+    dbs::graph::Graph,
+    doc::document::Cursor,
     err::Error,
     ql::{
-        array::Array, condition::Condition, edge::Edge, expression::Expression, ident::Ident,
-        idiom::Idiom, number::Number, object::Object, part::Part, record::Record, strand::Strand,
-        table::Table, uuid::Uuid,
+        array::Array, edge::Edge, expression::Expression, ident::Ident, idiom::Idiom,
+        number::Number, object::Object, part::Part, record::Record, strand::Strand, table::Table,
+        uuid::Uuid,
     },
 };
+use actix::Addr;
 use core::fmt;
+use reblessive::tree::Stk;
 use std::{
     collections::BTreeMap,
     ops::{Add, Deref, Div, Mul, Sub},
@@ -33,8 +37,8 @@ impl Deref for Values {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum Value {
     #[default]
     None,
@@ -131,7 +135,7 @@ impl TryFrom<Value> for Vec<Value> {
         if let Value::Array(array) = value {
             return Ok(array.0);
         }
-        Err(Error::FailedIntoValue {
+        Err(Error::FailedFromValue {
             from: value,
             into: "Vec<Value>".to_string(),
         })
@@ -180,6 +184,13 @@ impl From<BTreeMap<Arc<str>, Value>> for Value {
     }
 }
 
+impl From<BTreeMap<String, Value>> for Value {
+    fn from(v: BTreeMap<String, Value>) -> Self {
+        let v = v.into_iter().map(|(s, v)| (s.into(), v)).collect();
+        Value::Object(Object(v))
+    }
+}
+
 impl From<Idiom> for Value {
     fn from(idiom: Idiom) -> Self {
         Value::Idiom(idiom)
@@ -222,6 +233,12 @@ impl From<Uuid> for Value {
     }
 }
 
+impl From<Expression> for Value {
+    fn from(expression: Expression) -> Self {
+        Value::Expression(Box::new(expression))
+    }
+}
+
 impl TryFrom<Value> for Record {
     type Error = Error;
 
@@ -229,7 +246,7 @@ impl TryFrom<Value> for Record {
         if let Value::Record(record) = value {
             return Ok(*record);
         };
-        Err(Error::FailedIntoValue {
+        Err(Error::FailedFromValue {
             from: value,
             into: String::from("Value"),
         })
@@ -250,14 +267,19 @@ impl Value {
         }
     }
 
-    pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
+    pub async fn evaluate(
+        &self,
+        stk: &mut Stk,
+        graph: &Addr<Graph>,
+        cur: Option<&Cursor>,
+    ) -> Result<Value, Error> {
         match self {
-            // Value::Record(_) => todo!(),
-            // Value::Array(_) => todo!(),
-            // Value::Object(_) => todo!(),
-            Value::Idiom(v) => v.evaluate(value),
-            Value::Expression(v) => v.evaluate(value),
-            v => Ok(v.to_owned()),
+            Value::Record(v) => stk.run(|stk| v.evaluate(stk, graph, cur)).await,
+            Value::Array(v) => stk.run(|stk| v.evaluate(stk, graph, cur)).await,
+            Value::Object(v) => stk.run(|stk| v.evaluate(stk, graph, cur)).await,
+            Value::Idiom(v) => stk.run(|stk| v.evaluate(stk, graph, cur)).await,
+            Value::Expression(v) => stk.run(|stk| v.evaluate(stk, graph, cur)).await,
+            _ => Ok(self.to_owned()),
         }
     }
 
@@ -270,12 +292,12 @@ impl Value {
         })
     }
 
-    pub fn filter(self, cond: &Condition) -> Result<Value, Error> {
-        if self.evaluate(&cond.0)?.is_truthy() {
-            return Ok(self);
-        }
-        Ok(Value::None)
-    }
+    // pub fn filter(self, cond: &Condition) -> Result<Value, Error> {
+    //     if self.evaluate(&cond.0)?.is_truthy() {
+    //         return Ok(self);
+    //     }
+    //     Ok(Value::None)
+    // }
 }
 
 impl Value {

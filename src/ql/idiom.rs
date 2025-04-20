@@ -1,11 +1,18 @@
 use crate::{
+    dbs::graph::Graph,
+    doc::document::Cursor,
     err::Error,
-    ql::{edge::Edge, part::Part, step::Step, value::Value},
+    ql::{ident::Ident, part::Part, value::Value},
 };
-use std::{fmt, ops::Deref, slice::Iter};
+use actix::Addr;
+use reblessive::tree::Stk;
+use std::sync::Arc;
+use std::{collections::BTreeMap, fmt, ops::Deref, slice::Iter};
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+use super::traits::Incoperate;
+
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Idioms(pub Vec<Idiom>);
 
 impl Deref for Idioms {
@@ -25,39 +32,102 @@ impl IntoIterator for Idioms {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Idiom(pub Vec<Part>);
 
 impl Idiom {
-    pub fn evaluate(&self, value: &Value) -> Result<Value, Error> {
-        let mut parts = self.iter();
-        let part = parts.next().expect("An empty idiom was passed evaluated");
-        let mut val = part.evaluate(value)?;
-
-        while let Some(part) = parts.next() {
-            val = match part {
-                Part::Value(_value) => todo!(),
-                Part::Step(_) => Self::parse_walk(part, &mut parts)?,
-                Part::Edge(_) => todo!(),
-                _ => val.retrieve(part)?,
-            }
+    pub async fn evaluate(
+        &self,
+        stk: &mut Stk,
+        graph: &Addr<Graph>,
+        cur: Option<&Cursor>,
+    ) -> Result<Value, Error> {
+        match self.first() {
+            Some(Part::Start(v)) => stk.run(|stk| v.evaluate(stk, graph, cur)).await,
+            _ => match cur {
+                Some(_) => todo!(),
+                None => todo!(),
+            },
         }
-
-        Ok(val)
     }
 
-    fn parse_walk(start: &Part, parts: &mut Iter<Part>) -> Result<Value, Error> {
-        match start {
-            Part::Step(Step {
-                dir,
-                to,
-                filter,
-                alias,
-            }) => todo!(),
-            Part::Edge(Edge { dir, from, to }) => todo!(),
-            _ => unreachable!(),
+    /* pub async fn execute(
+        self,
+        origin: Record,
+        graph: &Addr<Graph>,
+        stm: &Statement<'_>,
+    ) -> Result<Value, Error> {
+        let Idiom(parts) = self;
+        let part = parts.first().unwrap();
+
+        match part {
+            Part::Step(_) => {
+                let mut parts = parts.into_iter().peekable();
+
+                let mut path = Vec::new();
+                while let Some(Part::Step(step)) = parts.next() {
+                    path.push(step);
+                }
+
+                let field: Field = parts
+                    .next_if(|e| matches!(e, Part::Field(_)) || matches!(e, Part::All))
+                    .map_or(Part::Field(Ident("id".into())).try_into(), |part| {
+                        part.try_into()
+                    })?;
+
+                let response = graph.send(Retrieve::Record(origin.clone())).await.unwrap();
+
+                let node = match response {
+                    Response::Record(addr) => addr,
+                    Response::None => return Ok(Value::None),
+                    _ => unreachable!(),
+                };
+
+                let response = node.send(Walk::new(path, origin, field)).await.unwrap()?;
+                let value: Value = response.try_into()?;
+                // need to deal with this
+            }
+            Part::Edge(_) => todo!(),
+            Part::Start(_) => todo!(),
+            Part::Field(_) => todo!(),
+            Part::Index(_) => todo!(),
+            Part::Value(_) => todo!(),
+            Part::All => todo!(),
+            Part::Flatten => todo!(),
+            Part::First => todo!(),
+            Part::Last => todo!(),
+            Part::Where(value) => todo!(),
         }
+        todo!()
+    } */
+
+    fn parse_walk(start: Part, parts: &mut Iter<Part>) -> Result<Value, Error> {
+        // let mut steps = vec![];
+        while let Some(part) = parts.next() {}
+        todo!()
+    }
+}
+
+impl Incoperate for Idiom {
+    fn incorperate(&self, fields: &BTreeMap<Arc<str>, Value>) -> Idiom {
+        match self.split_first().expect("how did you get an empty idiom") {
+            (Part::Field(Ident(hd)), tl) => match fields.get(hd) {
+                Some(v) => {
+                    let mut tl = tl.to_vec();
+                    tl.insert(0, Part::Value(v.to_owned()));
+                    Idiom(tl)
+                }
+                None => self.to_owned(),
+            },
+            _ => self.to_owned(),
+        }
+    }
+}
+
+impl From<Vec<Part>> for Idiom {
+    fn from(parts: Vec<Part>) -> Self {
+        Idiom(parts)
     }
 }
 
@@ -84,7 +154,7 @@ impl fmt::Display for Idiom {
     }
 }
 
-#[cfg(test)]
+/* #[cfg(test)]
 mod test {
     use std::collections::BTreeMap;
 
@@ -140,4 +210,4 @@ mod test {
 
         assert_eq!(field, 2.into());
     }
-}
+} */

@@ -11,6 +11,13 @@ use std::sync::Arc;
 #[rtype(result = "Result<Response, Error>")]
 pub struct Insert(pub Value, pub Vec<(Arc<str>, Value)>);
 
+impl Insert {
+    pub fn new<T: Into<Arc<str>>>(val: Value, fields: Vec<(T, Value)>) -> Insert {
+        let fields = fields.into_iter().map(|(e, v)| (e.into(), v)).collect();
+        Insert(val, fields)
+    }
+}
+
 impl Handler<Insert> for Table {
     type Result = Result<Response, Error>;
 

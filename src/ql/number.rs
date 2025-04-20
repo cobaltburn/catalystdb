@@ -1,3 +1,4 @@
+use crate::err::Error;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -5,8 +6,6 @@ use std::{
     hash,
     ops::{self},
 };
-
-use crate::err::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Number {
@@ -284,5 +283,14 @@ impl Number {
             ),
             Number::Float(v) => Number::Float(-v),
         })
+    }
+}
+
+impl Number {
+    pub fn to_usize(&self) -> usize {
+        match self {
+            Number::Int(i) => *i as usize,
+            Number::Float(i) => *i as usize,
+        }
     }
 }
