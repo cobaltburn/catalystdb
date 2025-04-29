@@ -3,7 +3,7 @@ use crate::{
     doc::document::Cursor,
     err::Error,
     ql::{
-        array::Array, edge::Edge, expression::Expression, ident::Ident, idiom::Idiom,
+        array::Array, edge::Edge, expression::Expression, id::Id, ident::Ident, idiom::Idiom,
         number::Number, object::Object, part::Part, record::Record, strand::Strand, table::Table,
         uuid::Uuid,
     },
@@ -233,9 +233,27 @@ impl From<Uuid> for Value {
     }
 }
 
+impl From<uuid::Uuid> for Value {
+    fn from(uuid: uuid::Uuid) -> Self {
+        Value::Uuid(uuid.into())
+    }
+}
+
 impl From<Expression> for Value {
     fn from(expression: Expression) -> Self {
         Value::Expression(Box::new(expression))
+    }
+}
+
+impl From<Id> for Value {
+    fn from(id: Id) -> Self {
+        match id {
+            Id::Number(v) => Value::Number(v.into()),
+            Id::String(v) => Value::String(v.into()),
+            Id::Uuid(v) => Value::Uuid(v.into()),
+            Id::Array(v) => Value::Array(v),
+            Id::Object(v) => Value::Object(v),
+        }
     }
 }
 

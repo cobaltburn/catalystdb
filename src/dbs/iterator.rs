@@ -49,24 +49,25 @@ impl Iterable {
         let response = graph.send(Retrieve::Record(from.clone())).await.unwrap();
 
         let node = match response {
-            Response::Record(addr) => addr,
+            Response::Node(addr) => addr,
             Response::None => return Ok(Value::None),
             _ => unreachable!(),
         };
 
+        todo!();
         let mut responses: Vec<Value> = Vec::new();
 
-        let walk = Walk::new(
-            vec![Path::new(dir.clone(), to, None)],
-            from.clone(),
-            Field::Single {
-                expr: Ident("id".into()).into(),
-                alias: None,
-            },
-            graph.clone(),
-        );
-        let response = node.send(walk).await.unwrap()?;
-        responses.push(response.try_into()?);
+        // let walk = Walk::new(
+        //     vec![Path::new(dir.clone(), to, None)],
+        //     from.clone(),
+        //     Field::Single {
+        //         expr: Ident("id".into()).into(),
+        //         alias: None,
+        //     },
+        //     graph.clone(),
+        // );
+        // let response = node.send(walk).await.unwrap()?;
+        // responses.push(response.try_into()?);
 
         Ok(responses.into())
     }
@@ -154,7 +155,7 @@ impl Iterator {
         let response = graph.send(Retrieve::Record(id.clone())).await.unwrap();
 
         let node = match response {
-            Response::Record(addr) => addr,
+            Response::Node(addr) => addr,
             Response::None => return Ok(()),
             _ => unreachable!(),
         };
@@ -172,7 +173,7 @@ impl Iterator {
         let retrieve = Retrieve::Table(table);
         let response = graph.send(retrieve).await.unwrap();
         let table = match response {
-            Response::Table(table) => table,
+            Response::Nodes(table) => table,
             Response::None => return Ok(()),
             _ => unreachable!(),
         };

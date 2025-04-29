@@ -9,18 +9,17 @@ use crate::{
     resp::Response,
 };
 use actix::{Handler, Message};
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
-#[derive(Message)]
+#[derive(Message, Clone)]
 #[rtype(result = "Result<Response, Error>")]
 pub struct Get {
     pub fields: Fields,
-    pub filter: Option<Arc<Condition>>,
+    pub filter: Option<Condition>,
 }
 
 impl Get {
     pub fn new(fields: Fields, filter: Option<Condition>) -> Self {
-        let filter = filter.map(|con| Arc::new(con));
         Get { fields, filter }
     }
 }
@@ -30,6 +29,7 @@ impl Handler<Get> for Entity {
 
     fn handle(&mut self, Get { fields, filter }: Get, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(filter) = filter {
+            // TODO have to configure filtering
             // let check = filter.evaluate(&self.fields().clone().into())?;
 
             // if !check.is_truthy() {

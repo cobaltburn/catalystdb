@@ -9,8 +9,8 @@ use std::{collections::BTreeMap, fmt, sync::Arc};
 #[derive(PartialEq, Eq, Debug)]
 pub enum Response {
     Value(Value),
-    Table(Vec<Addr<Entity>>),
-    Record(Addr<Entity>),
+    Nodes(Vec<Addr<Entity>>),
+    Node(Addr<Entity>),
     None,
 }
 
@@ -66,7 +66,7 @@ impl TryFrom<Response> for Vec<Addr<Entity>> {
     type Error = Error;
 
     fn try_from(response: Response) -> Result<Self, Self::Error> {
-        if let Response::Table(response) = response {
+        if let Response::Nodes(response) = response {
             return Ok(response);
         }
         Err(Error::FailedFromResponse {
@@ -80,7 +80,7 @@ impl TryFrom<Response> for Addr<Entity> {
     type Error = Error;
 
     fn try_from(response: Response) -> Result<Self, Self::Error> {
-        if let Response::Record(response) = response {
+        if let Response::Node(response) = response {
             return Ok(response);
         }
         Err(Error::FailedFromResponse {
@@ -92,7 +92,7 @@ impl TryFrom<Response> for Addr<Entity> {
 
 impl From<Vec<Addr<Entity>>> for Response {
     fn from(records: Vec<Addr<Entity>>) -> Self {
-        Response::Table(records)
+        Response::Nodes(records)
     }
 }
 
@@ -100,8 +100,8 @@ impl fmt::Display for Response {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Response::Value(v) => write!(f, "{v}"),
-            Response::Table(v) => write!(f, "{v:#?}"),
-            Response::Record(v) => write!(f, "{v:#?}"),
+            Response::Nodes(v) => write!(f, "{v:#?}"),
+            Response::Node(v) => write!(f, "{v:#?}"),
             Response::None => write!(f, "NONE"),
         }
     }

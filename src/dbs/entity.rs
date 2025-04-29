@@ -130,11 +130,12 @@ impl Entity {
     }
 
     pub fn evaluate(&self, val: &Value) -> Result<Value, Error> {
-        Ok(match val {
+        todo!()
+        /* Ok(match val {
             Value::Idiom(v) => v.evaluate(&self.fields().clone().into())?,
             Value::Expression(v) => v.evaluate(&self.fields().clone().into())?,
             _ => val.to_owned(),
-        })
+        }) */
     }
 }
 

@@ -48,7 +48,7 @@ mod test {
             .unwrap()
             .unwrap();
         let response: Response = addr.send(Retrieve::Table("b".into())).await.unwrap();
-        let Response::Table(table) = response else {
+        let Response::Nodes(table) = response else {
             panic!("table was not returned");
         };
         assert_eq!(table.len(), 0);

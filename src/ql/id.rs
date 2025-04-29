@@ -2,11 +2,11 @@ use crate::{
     dbs::graph::Graph,
     doc::document::Cursor,
     err::Error,
-    ql::{array::Array, object::Object, strand::Strand, uuid::Uuid, value::Value},
+    ql::{array::Array, object::Object, strand::Strand, value::Value},
 };
 use actix::Addr;
 use reblessive::tree::Stk;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -16,6 +16,12 @@ pub enum Id {
     Uuid(uuid::Uuid),
     Array(Array),
     Object(Object),
+}
+
+impl Default for Id {
+    fn default() -> Id {
+        Id::Uuid(uuid::Uuid::now_v7())
+    }
 }
 
 impl From<i64> for Id {
@@ -90,6 +96,18 @@ impl From<BTreeMap<String, Value>> for Id {
     }
 }
 
+impl Display for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Id::Number(v) => Display::fmt(v, f),
+            Id::String(v) => Display::fmt(v, f),
+            Id::Uuid(v) => Display::fmt(v, f),
+            Id::Array(v) => Display::fmt(v, f),
+            Id::Object(v) => Display::fmt(v, f),
+        }
+    }
+}
+
 impl Id {
     pub async fn evaluate(
         &self,
@@ -103,11 +121,17 @@ impl Id {
             Id::Uuid(v) => Ok(Id::Uuid(*v)),
             Id::Array(v) => match v.evaluate(stk, graph, cur).await? {
                 Value::Array(v) => Ok(Id::Array(v)),
-                v => todo!(),
+                v => Err(Error::IncorrectValueType {
+                    expected: String::from("Value::Array"),
+                    result: v,
+                }),
             },
             Id::Object(v) => match v.evaluate(stk, graph, cur).await? {
                 Value::Object(v) => Ok(Id::Object(v)),
-                v => todo!(),
+                v => Err(Error::IncorrectValueType {
+                    expected: String::from("Value::Object"),
+                    result: v,
+                }),
             },
         }
     }

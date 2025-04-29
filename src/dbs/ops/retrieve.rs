@@ -53,8 +53,8 @@ impl Handler<Retrieve> for Table {
                 Retrieve::Record(Record { table: _, id }) => nodes
                     .read()
                     .unwrap()
-                    .get(&id)
-                    .map_or(Response::None, |addr| Response::Record(addr.clone())),
+                    .get(&id.into())
+                    .map_or(Response::None, |addr| Response::Node(addr.clone())),
             }
         })
     }

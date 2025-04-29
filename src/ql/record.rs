@@ -31,7 +31,7 @@ impl Record {
 }
 
 impl Record {
-    pub fn new<T: Into<Arc<str>>, W: Into<Value>>(table: T, id: W) -> Self {
+    pub fn new<T: Into<Arc<str>>, W: Into<Id>>(table: T, id: W) -> Self {
         Record {
             table: table.into(),
             id: id.into(),
@@ -41,7 +41,7 @@ impl Record {
     pub fn generate<T: Into<Arc<str>>>(table: T) -> Self {
         Record {
             table: table.into(),
-            id: Uuid::new().into(),
+            id: Id::default(),
         }
     }
 }
@@ -52,7 +52,7 @@ impl fmt::Display for Record {
     }
 }
 
-impl<T: Into<Arc<str>>, W: Into<Value>> From<(T, W)> for Record {
+impl<T: Into<Arc<str>>, W: Into<Id>> From<(T, W)> for Record {
     fn from((table, id): (T, W)) -> Self {
         Record::new(table, id)
     }

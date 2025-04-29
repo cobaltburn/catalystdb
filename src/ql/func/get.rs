@@ -1,10 +1,17 @@
 use crate::{
-    dbs::{graph::Graph, ops::retrieve::Retrieve},
+    dbs::{
+        entity::Entity,
+        graph::Graph,
+        ops::{get::Get, retrieve::Retrieve, walk::Walk},
+    },
     doc::document::Cursor,
     err::Error,
     ql::{
         array::Array,
-        part::{Next, Part, Skip},
+        fields::Field,
+        ident::Ident,
+        idiom::Idiom,
+        part::{Next, ParseWalk, Part, Skip},
         value::Value,
     },
     resp::Response,
@@ -29,15 +36,48 @@ impl Value {
                     if path.len() == 0 {
                         return Ok(Value::Record(val));
                     }
+                    let response = graph.send(Retrieve::Record(*val.clone())).await.unwrap();
+                    let Response::Node(node) = response else {
+                        return Ok(Value::None);
+                    };
                     match p {
-                        Part::Path(_s) => todo!(),
-                        _ => {
-                            let response = graph.send(Retrieve::Record(*val)).await.unwrap();
-                            let Response::Record(node) = response else {
-                                return Ok(Value::None);
-                            };
-                            todo!()
+                        Part::Path(_) => {
+                            let (get, walk, path) = path.parse_walk();
+                            let response = node.send(Walk::new(walk, *val)).await.unwrap()?;
+                            let nodes: Vec<Addr<Entity>> = response.try_into()?;
+
+                            let mut array = Array::with_capacity(nodes.len());
+                            for node in nodes {
+                                let response = node.send(get.clone()).await.unwrap()?;
+                                match response {
+                                    Response::Value(v) => array
+                                        .push(stk.run(|stk| v.get(stk, graph, cur, path)).await?),
+                                    Response::None => array.push(Value::None),
+                                    _ => unreachable!(),
+                                }
+                            }
+                            return Ok(Value::Array(array));
                         }
+                        _ => {
+                            todo!();
+                        }
+                        /* _ => {
+                            let (get, walk, path) = path.parse_walk();
+                            let response = node.send(Walk::new(walk, *val)).await.unwrap()?;
+                            let nodes: Vec<Addr<Entity>> = response.try_into()?;
+
+                            let mut array = Array::with_capacity(nodes.len());
+                            for node in nodes {
+                                let response = node.send(get.clone()).await.unwrap()?;
+                                match response {
+                                    Response::Value(v) => array
+                                        .push(stk.run(|stk| v.get(stk, graph, cur, path)).await?),
+                                    Response::None => array.push(Value::None),
+                                    _ => unreachable!(),
+                                }
+                            }
+                            return Ok(Value::Array(array));
+                        } */
                     }
                 }
                 Value::Array(v) => match p {

@@ -56,8 +56,8 @@ pub enum Error {
     #[error("Failed to convert part {from} into a {into}")]
     FailedFromPart { from: Part, into: String },
 
-    #[error("")]
-    IncorrectType(String),
+    #[error("Expected a {expected} found {result:?}")]
+    IncorrectValueType { expected: String, result: Value },
 
     #[error("")]
     InvalidStatement(),

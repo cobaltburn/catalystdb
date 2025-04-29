@@ -1,4 +1,7 @@
-use crate::ql::{edge::Edge, ident::Ident, number::Number, path::Path, value::Value};
+use crate::{
+    dbs::ops::get::Get,
+    ql::{edge::Edge, fields::Field, ident::Ident, number::Number, path::Path, value::Value},
+};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
@@ -8,13 +11,13 @@ pub enum Part {
     Flatten,
     First,
     Last,
-    Start(Value),
     Field(Ident),
     Index(Number),
-    Value(Value),
     Where(Value),
     Path(Path),
     Edge(Edge),
+    Start(Value),
+    Value(Value),
 }
 
 pub trait Next<'a> {
@@ -27,6 +30,35 @@ impl<'a> Next<'a> for &'a [Part] {
             0 => &[],
             _ => &self[1..],
         }
+    }
+}
+
+pub trait ParseWalk<'a> {
+    fn parse_walk(&'a self) -> (Get, Vec<Path>, &'a [Part]);
+}
+
+impl<'a> ParseWalk<'a> for &'a [Part] {
+    fn parse_walk(&'a self) -> (Get, Vec<Path>, &'a [Part]) {
+        let walk_path = self
+            .iter()
+            .take_while(|&p| Part::is_path(p))
+            .filter_map(|p| {
+                if let Part::Path(p) = p {
+                    Some(p.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Path>>();
+
+        let (get, path) = if let Some(part @ Part::Field(_)) = self.get(walk_path.len()) {
+            let field: Field = part.clone().try_into().unwrap();
+            (Get::new(field.into(), None), &self[walk_path.len() + 1..])
+        } else {
+            let field: Field = Part::Field("id".into()).try_into().unwrap();
+            (Get::new(field.into(), None), &self[walk_path.len()..])
+        };
+        (get, walk_path, path)
     }
 }
 
@@ -60,7 +92,7 @@ impl Part {
         matches!(self, Part::Edge(_))
     }
 
-    pub fn is_step(&self) -> bool {
+    pub fn is_path(&self) -> bool {
         matches!(self, Part::Path(_))
     }
 
@@ -90,3 +122,6 @@ impl fmt::Display for Part {
         }
     }
 }
+
+#[cfg(test)]
+mod test {}

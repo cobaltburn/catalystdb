@@ -2,12 +2,12 @@ use crate::{
     dbs::graph::Graph,
     doc::document::Cursor,
     err::Error,
-    ql::{part::Part, traits::Incoperate, value::Value},
+    ql::{traits::Incoperate, value::Value},
 };
 use actix::Addr;
 use core::fmt;
 use reblessive::tree::Stk;
-use std::{collections::BTreeMap, ops::Deref, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Debug, Clone, Default, PartialEq, Hash, Eq, PartialOrd, Ord)]
 #[non_exhaustive]

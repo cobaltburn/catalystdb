@@ -13,6 +13,12 @@ impl Ident {
     }
 }
 
+impl From<&str> for Ident {
+    fn from(val: &str) -> Self {
+        Ident(val.into())
+    }
+}
+
 impl Deref for Ident {
     type Target = Arc<str>;
 
